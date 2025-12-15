@@ -463,10 +463,10 @@
                     </div>
                     <div class="flex gap-2">
                         <button onclick="saveCurrentRecord()" class="flex-1 py-1.5 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-[#f0b90b] transition" title="保存当前记录">
-                            💾 保存记录
+                            保存记录
                         </button>
                         <button onclick="resetAll()" class="flex-1 py-1.5 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-white transition">
-                            🔄 重置
+                            重置
                         </button>
                     </div>
                 </div>
@@ -549,7 +549,7 @@
                 <div class="p-3 border-b border-[#2b3139] flex justify-between items-center">
                     <span class="text-xs text-[#848e9c]">已保存的记录</span>
                     <button onclick="saveCurrentRecord()" class="px-2 py-1 text-[10px] bg-[#f0b90b] text-black rounded hover:opacity-80 transition">
-                        💾 保存当前
+                        保存当前
                     </button>
                 </div>
                 <div id="records-list" class="flex-1 overflow-y-auto p-2 space-y-2">
@@ -557,7 +557,7 @@
                 </div>
                 <div class="p-2 border-t border-[#2b3139]">
                     <button onclick="clearAllRecords()" class="w-full py-1.5 text-[10px] bg-[#2b3139] text-[#848e9c] rounded hover:text-[#f6465d] transition">
-                        🗑️ 清空所有记录
+                        清空所有记录
                     </button>
                 </div>
             </div>
@@ -2401,7 +2401,6 @@
         
         saveRecordsToStorage(records);
         renderRecordsList();
-        showCustomAlert('✅ 记录已保存！\n\n八字：' + bz.bazi + '\n格局：' + bz.pattern, 'info');
         
         // 自动切换到记录面板
         switchTradeTab('records');
@@ -2478,9 +2477,6 @@
         
         // 重新生成
         runSimulation();
-        
-        const genderText = record.gender === 'female' ? '女' : '男';
-        showCustomAlert('📂 已加载记录\n\n性别：' + genderText + '\n八字：' + record.bazi + '\n格局：' + record.pattern, 'info');
     }
     
     // 删除单条记录
