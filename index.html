@@ -306,7 +306,7 @@
             </div>
 
             <div class="flex-1 flex flex-col overflow-hidden">
-                <div class="px-4 py-2 text-xs text-[#848e9c] flex justify-between border-b border-[#2b3139]">
+                <div id="order-book-header" class="px-4 py-2 text-xs text-[#848e9c] flex justify-between border-b border-[#2b3139]">
                     <span>年份/年龄</span>
                     <span>运势(Price)</span>
                     <span>事件(Event)</span>
@@ -1019,7 +1019,28 @@
         window.addEventListener('resize', () => chartInstance.resize());
     }
 
+    function updateOrderBookHeader() {
+        const header = document.getElementById('order-book-header');
+        let timeLabel = '年份/年龄';
+        
+        if (currentGranularity === 'day') {
+            timeLabel = '日期';
+        } else if (currentGranularity === 'month') {
+            timeLabel = '月份';
+        } else {
+            timeLabel = '年份/年龄';
+        }
+        
+        header.innerHTML = `
+            <span>${timeLabel}</span>
+            <span>运势(Price)</span>
+            <span>事件(Event)</span>
+        `;
+    }
+
     function renderOrderBook(events) {
+        updateOrderBookHeader();
+        
         const container = document.getElementById('order-book');
         container.innerHTML = ''; 
         
@@ -1029,12 +1050,26 @@
             el.style.animationDelay = `${idx * 0.01}s`;
             const colorClass = evt.isUp ? 'text-[#0ecb81]' : 'text-[#f6465d]';
             
+            // 根据粒度显示不同的时间标签
+            let timeLabel = '';
+            let titleText = '';
+            if (currentGranularity === 'day') {
+                timeLabel = evt.year;
+                titleText = `点击查看 ${evt.year} 详情`;
+            } else if (currentGranularity === 'month') {
+                timeLabel = evt.year;
+                titleText = `点击查看 ${evt.year} 详情`;
+            } else {
+                timeLabel = `${evt.year} <span class="scale-75 inline-block opacity-50">(${evt.age}岁)</span>`;
+                titleText = `点击查看 ${evt.year} 年 (${evt.age}岁) 详情`;
+            }
+            
             el.innerHTML = `
-                <span class="text-[#848e9c] w-1/3 text-left">${evt.year} <span class="scale-75 inline-block opacity-50">(${evt.age}岁)</span></span>
+                <span class="text-[#848e9c] w-1/3 text-left">${timeLabel}</span>
                 <span class="${colorClass} w-1/3 text-right font-mono">${evt.close}</span>
                 <span class="text-white w-1/3 text-right text-[11px]">${evt.type}</span>
             `;
-            el.title = `点击查看 ${evt.year} 年 (${evt.age}岁) 详情`;
+            el.title = titleText;
             el.onclick = () => { 
                 jumpToYear(evt.age);
             };
@@ -1370,7 +1405,7 @@
             </div>
             <div style="margin-left: auto;">
                 <div class="text-[#848e9c]">快捷键</div>
-                <div class="text-[#848e9c] text-[10px]">空格:生成 | M:MA | E:EMA | B:BOLL | L:做多 | S:躺平 | H:帮助</div>
+                <div class="text-[#848e9c] text-[10px]">D:日K | K:月K | Y:年K | A:MA | L:做多 | S:躺平 | H:帮助</div>
             </div>
             <div>
                 <button onclick="toggleHelp()" class="px-3 py-1 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-[#f0b90b] transition" title="帮助信息 (H键)">
@@ -1431,6 +1466,7 @@
                 <ul>
                     <li>以股票K线的形式展示人生运势走向</li>
                     <li>基于出生日期模拟八字排盘和命理分析</li>
+                    <li>支持日K/月K/年K三种时间粒度查看</li>
                     <li>支持多种技术指标辅助分析人生轨迹</li>
                     <li>通过"做多"或"躺平"模拟不同人生态度</li>
                 </ul>
