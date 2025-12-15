@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <script>
-        // 检测是否为移动设备，如果是则跳转到移动版
+        // 检测是否为PC设备，如果是则跳转到PC版
         (function() {
             var ua = navigator.userAgent.toLowerCase();
             var isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
             var isSmallScreen = window.innerWidth <= 768;
             
-            // 如果是移动设备或屏幕宽度小于768px，跳转到移动版
-            if (isMobile || isSmallScreen) {
-                window.location.href = 'index-mobile.html';
+            // 如果不是移动设备且屏幕宽度大于768px，跳转到PC版
+            if (!isMobile && !isSmallScreen) {
+                window.location.href = 'index.html';
             }
         })();
     </script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>LIFE/TIME - 人生交易所</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
@@ -33,8 +35,12 @@
         body {
             background-color: var(--bg-base);
             color: var(--text-primary);
-            font-family: 'Binance Plex', 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            overflow: hidden; /* 类似App体验 */
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         /* 滚动条样式 */
@@ -127,31 +133,6 @@
             50% { opacity: 0.5; }
         }
         .pulse { animation: pulse 2s ease-in-out infinite; }
-
-        /* 行情滚动条 */
-        .ticker-tape {
-            background: #0b0e11;
-            border-bottom: 1px solid #2b3139;
-            overflow: hidden;
-            height: 32px;
-            position: relative;
-        }
-        .ticker-content {
-            display: flex;
-            animation: scroll-left 30s linear infinite;
-            white-space: nowrap;
-        }
-        @keyframes scroll-left {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
-        .ticker-item {
-            padding: 0 20px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 11px;
-        }
 
         /* 深度图样式 */
         .depth-bar {
@@ -266,234 +247,217 @@
             left: 0;
             color: #0ecb81;
         }
+
+        /* 移动端底部面板 */
+        #bottom-panel {
+            transition: transform 0.3s ease-out;
+        }
+        #bottom-panel.collapsed {
+            transform: translateY(calc(100% - 60px));
+        }
+        #bottom-panel.collapsed #bottom-panel-content {
+            overflow: hidden;
+        }
+
+        /* 移动端优化 */
+        .zoom-controls {
+            display: none; /* 移动端隐藏 */
+        }
+        
+        /* 订单簿移动端样式 */
+        .order-book-item {
+            padding: 6px 0;
+        }
+        
+        /* 帮助面板移动端适配 */
+        .help-panel {
+            max-width: 95vw;
+            max-height: 90vh;
+            padding: 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* 移动端内部滚动区域优化 */
+        .help-panel > div {
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* 自定义提示框移动端 */
+        .custom-alert {
+            max-width: 90vw;
+            padding: 25px 30px;
+        }
+
+        /* 触摸反馈 */
+        button:active {
+            transform: scale(0.98);
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
 
-    <!-- 行情滚动条 -->
-    <div class="ticker-tape">
-        <div class="ticker-content" id="ticker-content">
-            <!-- 动态生成 -->
-        </div>
-    </div>
-
-    <header class="h-16 border-b border-[#2b3139] flex items-center px-4 bg-[#161a1e] flex-shrink-0">
-        <div class="flex items-center gap-4 mr-8">
-            <h1 class="text-xl font-bold text-white">LIFE / TIME</h1>
-            <span class="text-xs bg-[#2b3139] px-2 py-0.5 rounded text-[#848e9c]">永续合约</span>
+    <header class="border-b border-[#2b3139] bg-[#161a1e] flex-shrink-0">
+        <!-- 顶部栏 -->
+        <div class="flex items-center justify-between px-3 py-2">
+            <div class="flex items-center gap-2">
+                <h1 class="text-base font-bold text-white">LIFE/TIME</h1>
+                <span class="text-[10px] bg-[#2b3139] px-1.5 py-0.5 rounded text-[#848e9c]">永续</span>
+            </div>
+            <button onclick="toggleHelp()" class="px-2 py-1 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-[#f0b90b]">
+                ❓
+            </button>
         </div>
         
-        <div class="flex gap-6 text-xs">
-            <div>
-                <div class="text-[#0ecb81] font-medium text-2xl" id="current-score">60.00</div>
-                <div class="text-[#848e9c] text-xs">当前运势 (Last Price)</div>
+        <!-- 行情信息 -->
+        <div class="px-3 pb-2">
+            <div class="flex items-end gap-3 mb-2">
+                <div class="text-[#0ecb81] font-medium text-3xl" id="current-score">60.00</div>
+                <div class="text-[#0ecb81] font-medium text-sm mb-1" id="price-change">+0.00%</div>
             </div>
-            <div class="border-l border-[#2b3139] pl-6 space-y-1">
-                <div class="flex items-center gap-2">
-                    <span class="text-[#848e9c]">24h涨跌</span>
-                    <span class="text-[#0ecb81] font-medium" id="price-change">+0.00%</span>
+            <div class="grid grid-cols-4 gap-3 text-[10px]">
+                <div>
+                    <div class="text-[#848e9c]">24h高</div>
+                    <div class="text-white font-medium" id="high-score">--</div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-[#848e9c]">24h额</span>
-                    <span class="text-white font-medium" id="turnover">0</span>
+                <div>
+                    <div class="text-[#848e9c]">24h低</div>
+                    <div class="text-white font-medium" id="low-score">--</div>
                 </div>
-            </div>
-            <div class="border-l border-[#2b3139] pl-6 space-y-1">
-                <div class="flex items-center gap-2">
-                    <span class="text-[#848e9c]">24h高</span>
-                    <span class="text-white font-medium" id="high-score">--</span>
+                <div>
+                    <div class="text-[#848e9c]">24h量</div>
+                    <div class="text-white font-medium" id="vol-score">--</div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-[#848e9c]">24h低</span>
-                    <span class="text-white font-medium" id="low-score">--</span>
-                </div>
-            </div>
-            <div class="border-l border-[#2b3139] pl-6 space-y-1">
-                <div class="flex items-center gap-2">
-                    <span class="text-[#848e9c]">24h量</span>
-                    <span class="text-white font-medium" id="vol-score">--</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-[#848e9c]">资金费率</span>
-                    <span class="text-[#0ecb81] font-medium">+0.01%</span>
+                <div>
+                    <div class="text-[#848e9c]">24h额</div>
+                    <div class="text-white font-medium" id="turnover">0</div>
                 </div>
             </div>
         </div>
     </header>
 
-    <div class="flex-1 flex overflow-hidden">
-        
-        <div class="flex-1 flex flex-col relative border-r border-[#2b3139]">
-            <div class="h-10 border-b border-[#2b3139] flex items-center px-4 gap-4 text-xs text-[#848e9c] bg-[#161a1e]">
-                <span class="text-white cursor-pointer hover:text-[#f0b90b]">粒度</span>
-                <span id="granularity-day" class="cursor-pointer hover:text-white" onclick="switchGranularity('day')">日K</span>
-                <span id="granularity-month" class="cursor-pointer hover:text-white" onclick="switchGranularity('month')">月K</span>
-                <span id="granularity-year" class="cursor-pointer hover:text-white text-[#f0b90b]" onclick="switchGranularity('year')">年K</span>
-                <span class="text-[#848e9c]">|</span>
-                <span class="text-white cursor-pointer hover:text-[#f0b90b]">周期</span>
-                <span id="period-1y" class="cursor-pointer hover:text-white text-[#f0b90b]" onclick="switchPeriod('1y')">1年</span>
-                <span id="period-10y" class="cursor-pointer hover:text-white" onclick="switchPeriod('10y')">10年</span>
-                <span class="text-[#848e9c]">|</span>
-                <span class="cursor-pointer hover:text-white">指标</span>
-                <span id="indicator-ma" class="text-[#f0b90b] cursor-pointer" onclick="toggleIndicator('ma')">MA</span>
-                <span id="indicator-ema" class="text-[#848e9c] cursor-pointer hover:text-white" onclick="toggleIndicator('ema')">EMA</span>
-                <span id="indicator-boll" class="text-[#848e9c] cursor-pointer hover:text-white" onclick="toggleIndicator('boll')">BOLL</span>
+    <!-- 图表区域 -->
+    <div class="flex-1 flex flex-col relative overflow-hidden">
+        <!-- 工具栏 -->
+        <div class="h-10 border-b border-[#2b3139] flex items-center px-3 gap-2 text-[10px] text-[#848e9c] bg-[#161a1e] overflow-x-auto">
+            <span id="granularity-day" class="cursor-pointer hover:text-white whitespace-nowrap px-2 py-1" onclick="switchGranularity('day')">日K</span>
+            <span id="granularity-month" class="cursor-pointer hover:text-white whitespace-nowrap px-2 py-1" onclick="switchGranularity('month')">月K</span>
+            <span id="granularity-year" class="cursor-pointer hover:text-white text-[#f0b90b] whitespace-nowrap px-2 py-1" onclick="switchGranularity('year')">年K</span>
+            <span class="text-[#848e9c]">|</span>
+            <span id="indicator-ma" class="text-[#f0b90b] cursor-pointer whitespace-nowrap px-2 py-1" onclick="toggleIndicator('ma')">MA</span>
+            <span id="indicator-ema" class="text-[#848e9c] cursor-pointer hover:text-white whitespace-nowrap px-2 py-1" onclick="toggleIndicator('ema')">EMA</span>
+            <span id="indicator-boll" class="text-[#848e9c] cursor-pointer hover:text-white whitespace-nowrap px-2 py-1" onclick="toggleIndicator('boll')">BOLL</span>
+        </div>
+
+        <div id="kline-chart" class="w-full flex-1 bg-[#161a1e]"></div>
+
+        <div id="chart-loader" class="absolute inset-0 bg-[#0b0e11] z-50 flex flex-col items-center justify-center hidden">
+            <div class="loader mb-4"></div>
+            <div class="text-sm text-[#eaecef] mb-2">正在连接命运节点...</div>
+            <div id="loading-tips" class="text-xs text-[#848e9c] max-w-xs text-center"></div>
+        </div>
+    </div>
+
+    <!-- 底部交易面板 -->
+    <div class="bg-[#161a1e] flex flex-col flex-shrink-0 border-t border-[#2b3139]" id="bottom-panel">
+        <!-- 拖动手柄 -->
+        <div class="flex justify-center py-2 cursor-pointer" onclick="toggleBottomPanel()">
+            <div class="w-10 h-1 bg-[#2b3139] rounded-full"></div>
+        </div>
+
+        <div id="bottom-panel-content">
+        <!-- 交易面板标签 -->
+        <div class="flex border-b border-[#2b3139] text-xs bg-[#0b0e11]">
+            <button id="tab-orderbook" class="flex-1 py-2 text-[#848e9c]" onclick="switchTradeTab('orderbook')">盘口</button>
+            <button id="tab-trades" class="flex-1 py-2 text-[#848e9c]" onclick="switchTradeTab('trades')">成交</button>
+            <button id="tab-settings" class="flex-1 py-2 text-white border-b-2 border-[#f0b90b]" onclick="switchTradeTab('settings')">设置</button>
+        </div>
+
+        <!-- 订单簿 -->
+        <div id="panel-orderbook" class="max-h-48 overflow-y-auto hidden">
+            <div id="order-book-header" class="px-3 py-2 text-[10px] text-[#848e9c] flex justify-between border-b border-[#2b3139] sticky top-0 bg-[#161a1e]">
+                <span>时间</span>
+                <span>价格</span>
+                <span>事件</span>
             </div>
+            <div id="order-book" class="px-2 py-1 space-y-0.5"></div>
+        </div>
 
-            <div id="kline-chart" class="w-full h-full bg-[#161a1e]"></div>
-
-            <!-- 缩放控制按钮 -->
-            <div class="zoom-controls">
-                <button class="zoom-btn" onclick="zoomIn()" title="放大 (滚轮上)">+</button>
-                <button class="zoom-btn" onclick="zoomOut()" title="缩小 (滚轮下)">−</button>
-                <button class="zoom-btn" onclick="resetZoom()" title="重置 (Z键)">⟲</button>
+        <!-- 最近成交 -->
+        <div id="panel-trades" class="max-h-48 overflow-y-auto hidden">
+            <div class="px-3 py-2 text-[10px] text-[#848e9c] flex justify-between border-b border-[#2b3139] sticky top-0 bg-[#161a1e]">
+                <span>时间</span>
+                <span>价格</span>
+                <span>数量</span>
             </div>
+            <div id="recent-trades" class="px-2 py-1 space-y-0.5"></div>
+        </div>
 
-            <div id="chart-loader" class="absolute inset-0 bg-[#0b0e11] z-50 flex flex-col items-center justify-center hidden">
-                <div class="loader mb-4"></div>
-                <div class="text-sm text-[#eaecef] mb-2">正在连接命运节点...</div>
-                <div id="loading-tips" class="text-xs text-[#848e9c] max-w-xs text-center"></div>
+        <!-- 设置面板 -->
+        <div id="panel-settings" class="p-3">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] text-[#848e9c] mb-1 block">出生日期</label>
+                    <input type="date" id="dob" value="1998-08-08" class="trade-input w-full p-2 rounded text-xs outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-[#848e9c] mb-1 block">出生时辰</label>
+                    <select id="birth-hour" class="trade-input w-full p-2 rounded text-xs outline-none">
+                        <option value="random">吉时 (Random)</option>
+                        <option value="zi">子时 (23-01)</option>
+                        <option value="chou">丑时 (01-03)</option>
+                        <option value="yin">寅时 (03-05)</option>
+                        <option value="mao">卯时 (05-07)</option>
+                        <option value="chen">辰时 (07-09)</option>
+                        <option value="si">巳时 (09-11)</option>
+                        <option value="wu">午时 (11-13)</option>
+                        <option value="wei">未时 (13-15)</option>
+                        <option value="shen">申时 (15-17)</option>
+                        <option value="you">酉时 (17-19)</option>
+                        <option value="xu">戌时 (19-21)</option>
+                        <option value="hai">亥时 (21-23)</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button id="tab-bazi" class="flex-1 py-1.5 text-xs rounded bg-[#2b3139] text-white" onclick="switchTab('bazi')">八字</button>
+                    <button id="tab-ziwei" class="flex-1 py-1.5 text-xs rounded text-[#848e9c]" onclick="switchTab('ziwei')">紫微</button>
+                </div>
+                <button onclick="runSimulation()" class="w-full py-3 rounded bg-[#f0b90b] text-black font-bold text-sm active:opacity-70 transition">
+                    生成人生 K 线
+                </button>
+                <button onclick="showBaziDetail()" class="w-full py-2 rounded bg-[#2b3139] text-[#848e9c] text-xs active:opacity-70 transition border border-[#2b3139] hover:border-[#f0b90b] hover:text-[#f0b90b]">
+                    🔮 查看八字详批
+                </button>
             </div>
         </div>
 
-        <div class="w-72 bg-[#161a1e] flex flex-col flex-shrink-0">
-            
-            <div class="p-4 border-b border-[#2b3139]">
-                <div class="flex gap-2 mb-4 bg-[#0b0e11] p-1 rounded">
-                    <button id="tab-bazi" class="flex-1 py-1 text-xs rounded bg-[#2b3139] text-white" onclick="switchTab('bazi')">八字排盘</button>
-                    <button id="tab-ziwei" class="flex-1 py-1 text-xs rounded text-[#848e9c] hover:text-white" onclick="switchTab('ziwei')">紫微斗数</button>
+        <!-- 交易区域 -->
+        <div class="p-3 border-t border-[#2b3139]">
+            <div class="flex gap-2 mb-2">
+                <div class="flex-1">
+                    <div class="text-[10px] text-[#848e9c] mb-1">杠杆</div>
+                    <select class="w-full bg-[#2b3139] border-0 text-white text-xs p-2 rounded">
+                        <option>1x</option>
+                        <option>5x</option>
+                        <option selected>10x</option>
+                        <option>20x</option>
+                        <option>50x</option>
+                    </select>
                 </div>
-
-                <div class="space-y-3">
-                    <div>
-                        <label class="text-[10px] text-[#848e9c] mb-1 block">出生日期</label>
-                        <input type="date" id="dob" value="1998-08-08" class="trade-input w-full p-2 rounded text-xs outline-none">
-                    </div>
-                    <div>
-                        <label class="text-[10px] text-[#848e9c] mb-1 block">出生时辰</label>
-                        <select id="birth-hour" class="trade-input w-full p-2 rounded text-xs outline-none">
-                            <option value="random">吉时 (Random)</option>
-                            <option value="zi">子时 (23-01)</option>
-                            <option value="chou">丑时 (01-03)</option>
-                            <option value="yin">寅时 (03-05)</option>
-                            <option value="mao">卯时 (05-07)</option>
-                            <option value="chen">辰时 (07-09)</option>
-                            <option value="si">巳时 (09-11)</option>
-                            <option value="wu">午时 (11-13)</option>
-                            <option value="wei">未时 (13-15)</option>
-                            <option value="shen">申时 (15-17)</option>
-                            <option value="you">酉时 (17-19)</option>
-                            <option value="xu">戌时 (19-21)</option>
-                            <option value="hai">亥时 (21-23)</option>
-                        </select>
-                    </div>
-                    <button onclick="runSimulation()" class="w-full py-2.5 rounded bg-[#f0b90b] text-black font-bold text-sm hover:opacity-90 transition">
-                        生成人生 K 线 (Space)
-                    </button>
-                    <button onclick="resetAll()" class="w-full py-1.5 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-white transition">
-                        重置所有设置
-                    </button>
+                <div class="flex-1">
+                    <div class="text-[10px] text-[#848e9c] mb-1">数量</div>
+                    <input type="number" class="w-full bg-[#2b3139] border-0 text-white text-xs p-2 rounded" placeholder="1" value="1">
                 </div>
             </div>
-
-            <!-- 交易面板标签 -->
-            <div class="flex border-b border-[#2b3139] text-xs bg-[#0b0e11]">
-                <button id="tab-orderbook" class="flex-1 py-2 text-white border-b-2 border-[#f0b90b]" onclick="switchTradeTab('orderbook')">盘口</button>
-                <button id="tab-trades" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('trades')">成交</button>
-                <button id="tab-position" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('position')">持仓</button>
-                <button id="tab-assets" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('assets')">资产</button>
+            <div class="flex gap-2">
+                <button onclick="doLong()" class="flex-1 py-3 rounded bg-[#0ecb81] text-white text-sm font-bold active:opacity-70 transition">
+                    开多 Long
+                </button>
+                <button onclick="doShort()" class="flex-1 py-3 rounded bg-[#f6465d] text-white text-sm font-bold active:opacity-70 transition">
+                    开空 Short
+                </button>
             </div>
-
-            <!-- 订单簿 / 盘口深度 -->
-            <div id="panel-orderbook" class="flex-1 flex flex-col overflow-hidden">
-                <div id="order-book-header" class="px-4 py-2 text-xs text-[#848e9c] flex justify-between border-b border-[#2b3139]">
-                    <span>年份/年龄</span>
-                    <span>运势(Price)</span>
-                    <span>事件(Event)</span>
-                </div>
-                
-                <div id="order-book" class="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
-                </div>
-            </div>
-
-            <!-- 最近成交 -->
-            <div id="panel-trades" class="flex-1 flex-col overflow-hidden hidden">
-                <div class="px-4 py-2 text-xs text-[#848e9c] flex justify-between border-b border-[#2b3139]">
-                    <span>时间</span>
-                    <span>价格</span>
-                    <span>数量</span>
-                </div>
-                <div id="recent-trades" class="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
-                </div>
-            </div>
-
-            <!-- 持仓信息 -->
-            <div id="panel-position" class="flex-1 flex-col overflow-hidden p-4 hidden">
-                <div class="space-y-3">
-                    <div class="bg-[#1e2329] p-3 rounded">
-                        <div class="text-xs text-[#848e9c] mb-2">当前持仓</div>
-                        <div class="text-lg font-bold text-white" id="position-size">0</div>
-                        <div class="text-xs text-[#848e9c] mt-1">单位：年份</div>
-                    </div>
-                    <div class="bg-[#1e2329] p-3 rounded">
-                        <div class="text-xs text-[#848e9c] mb-2">持仓均价</div>
-                        <div class="text-lg font-bold text-white" id="avg-price">--</div>
-                    </div>
-                    <div class="bg-[#1e2329] p-3 rounded">
-                        <div class="text-xs text-[#848e9c] mb-2">未实现盈亏</div>
-                        <div class="text-lg font-bold text-[#0ecb81]" id="unrealized-pnl">+0.00%</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 资产信息 -->
-            <div id="panel-assets" class="flex-1 flex-col overflow-hidden p-4 hidden">
-                <div class="space-y-3">
-                    <div class="bg-[#1e2329] p-3 rounded">
-                        <div class="text-xs text-[#848e9c] mb-2">总资产</div>
-                        <div class="text-lg font-bold text-white">10,000 USDT</div>
-                    </div>
-                    <div class="bg-[#1e2329] p-3 rounded">
-                        <div class="text-xs text-[#848e9c] mb-2">可用保证金</div>
-                        <div class="text-lg font-bold text-white">8,500 USDT</div>
-                    </div>
-                    <div class="bg-[#1e2329] p-3 rounded">
-                        <div class="text-xs text-[#848e9c] mb-2">已用保证金</div>
-                        <div class="text-lg font-bold text-white">1,500 USDT</div>
-                    </div>
-                    <div class="bg-[#1e2329] p-3 rounded">
-                        <div class="text-xs text-[#848e9c] mb-2">今日盈亏</div>
-                        <div class="text-lg font-bold text-[#0ecb81]">+125 USDT</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-3 border-t border-[#2b3139]">
-                <div class="flex gap-2 mb-2">
-                    <div class="flex-1">
-                        <div class="text-[10px] text-[#848e9c] mb-1">杠杆</div>
-                        <select class="w-full bg-[#2b3139] border-0 text-white text-xs p-1.5 rounded">
-                            <option>1x</option>
-                            <option>5x</option>
-                            <option selected>10x</option>
-                            <option>20x</option>
-                            <option>50x</option>
-                        </select>
-                    </div>
-                    <div class="flex-1">
-                        <div class="text-[10px] text-[#848e9c] mb-1">数量</div>
-                        <input type="number" class="w-full bg-[#2b3139] border-0 text-white text-xs p-1.5 rounded" placeholder="1" value="1">
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="doLong()" class="flex-1 py-2 rounded bg-[#0ecb81] text-white text-xs font-bold hover:opacity-80 transition">
-                        开多 Long
-                    </button>
-                    <button onclick="doShort()" class="flex-1 py-2 rounded bg-[#f6465d] text-white text-xs font-bold hover:opacity-80 transition">
-                        开空 Short
-                    </button>
-                </div>
-            </div>
+        </div>
         </div>
     </div>
 
@@ -508,6 +472,7 @@
         let currentTradeTab = 'orderbook'; // 当前交易面板标签
         let recentTrades = []; // 最近成交记录
         let tickerData = []; // 行情数据
+        let bottomPanelExpanded = true; // 底部面板展开状态
     
     // 核心配置：颜色变量
     const colors = {
@@ -1698,25 +1663,52 @@
 
     // ============ 交易所功能函数 ============
     
+    // 切换底部面板展开/收起
+    function toggleBottomPanel() {
+        const panel = document.getElementById('bottom-panel');
+        bottomPanelExpanded = !bottomPanelExpanded;
+        
+        if (bottomPanelExpanded) {
+            panel.classList.remove('collapsed');
+        } else {
+            panel.classList.add('collapsed');
+        }
+        
+        // 调整图表大小
+        setTimeout(() => {
+            if (chartInstance) {
+                chartInstance.resize();
+            }
+        }, 300);
+    }
+    
     // 切换交易面板标签
     function switchTradeTab(tab) {
         currentTradeTab = tab;
         
-        // 更新标签样式
-        ['orderbook', 'trades', 'position', 'assets'].forEach(t => {
+        // 确保面板展开
+        const panel = document.getElementById('bottom-panel');
+        if (!bottomPanelExpanded) {
+            toggleBottomPanel();
+        }
+        
+        // 更新标签样式（移动端只有3个标签）
+        ['orderbook', 'trades', 'settings'].forEach(t => {
             const tabEl = document.getElementById(`tab-${t}`);
             const panelEl = document.getElementById(`panel-${t}`);
             
-            if (t === tab) {
-                tabEl.classList.remove('text-[#848e9c]', 'border-transparent');
-                tabEl.classList.add('text-white', 'border-[#f0b90b]', 'border-b-2');
-                panelEl.classList.remove('hidden');
-                panelEl.classList.add('flex');
-            } else {
-                tabEl.classList.remove('text-white', 'border-[#f0b90b]', 'border-b-2');
-                tabEl.classList.add('text-[#848e9c]');
-                panelEl.classList.remove('flex');
-                panelEl.classList.add('hidden');
+            if (tabEl && panelEl) {
+                if (t === tab) {
+                    tabEl.classList.remove('text-[#848e9c]');
+                    tabEl.classList.add('text-white', 'border-b-2', 'border-[#f0b90b]');
+                    panelEl.classList.remove('hidden');
+                    panelEl.classList.add('block');
+                } else {
+                    tabEl.classList.remove('text-white', 'border-b-2', 'border-[#f0b90b]');
+                    tabEl.classList.add('text-[#848e9c]');
+                    panelEl.classList.remove('block');
+                    panelEl.classList.add('hidden');
+                }
             }
         });
         
@@ -1724,44 +1716,6 @@
         if (tab === 'trades') {
             generateRecentTrades();
         }
-    }
-    
-    // 生成行情滚动数据
-    function initTickerTape() {
-        tickerData = [
-            { symbol: 'LIFE/TIME', price: 60.00, change: '+2.35%', isUp: true },
-            { symbol: '健康/HEALTH', price: 85.50, change: '+1.28%', isUp: true },
-            { symbol: '财富/WEALTH', price: 45.20, change: '-0.85%', isUp: false },
-            { symbol: '事业/CAREER', price: 72.80, change: '+3.42%', isUp: true },
-            { symbol: '爱情/LOVE', price: 68.90, change: '-1.15%', isUp: false },
-            { symbol: '家庭/FAMILY', price: 78.30, change: '+0.95%', isUp: true },
-            { symbol: '学业/STUDY', price: 55.60, change: '+2.18%', isUp: true },
-            { symbol: '人气/POPULAR', price: 63.40, change: '-0.42%', isUp: false }
-        ];
-        
-        updateTickerTape();
-    }
-    
-    // 更新行情滚动条
-    function updateTickerTape() {
-        const container = document.getElementById('ticker-content');
-        let html = '';
-        
-        // 生成两份相同的内容以实现无缝循环
-        for (let i = 0; i < 2; i++) {
-            tickerData.forEach(item => {
-                const colorClass = item.isUp ? 'text-[#0ecb81]' : 'text-[#f6465d]';
-                html += `
-                    <div class="ticker-item">
-                        <span class="text-white font-medium">${item.symbol}</span>
-                        <span class="${colorClass} font-mono">${item.price.toFixed(2)}</span>
-                        <span class="${colorClass} text-[10px]">${item.change}</span>
-                    </div>
-                `;
-            });
-        }
-        
-        container.innerHTML = html;
     }
     
     // 生成最近成交记录
@@ -1787,14 +1741,14 @@
             });
         }
         
-        // 渲染成交记录
+        // 渲染成交记录（移动端优化）
         container.innerHTML = recentTrades.map(trade => {
             const colorClass = trade.isUp ? 'text-[#0ecb81]' : 'text-[#f6465d]';
             return `
-                <div class="flex justify-between text-xs px-2 py-1 hover:bg-[#2b3139]">
-                    <span class="text-[#848e9c] font-mono">${trade.time}</span>
-                    <span class="${colorClass} font-mono">${trade.price}</span>
-                    <span class="text-white font-mono">${trade.amount}</span>
+                <div class="flex justify-between text-[11px] px-3 py-1.5 active:bg-[#2b3139]">
+                    <span class="text-[#848e9c] font-mono w-1/3">${trade.time}</span>
+                    <span class="${colorClass} font-mono w-1/3 text-center">${trade.price}</span>
+                    <span class="text-white font-mono w-1/3 text-right">${trade.amount}</span>
                 </div>
             `;
         }).join('');
@@ -1854,39 +1808,37 @@
         const maxPrice = Math.max(...events.map(e => parseFloat(e.close)));
         const minPrice = Math.min(...events.map(e => parseFloat(e.close)));
         
-        events.slice().reverse().forEach((evt, idx) => {
+        // 移动端只显示最近20条
+        const displayEvents = events.slice(-20).reverse();
+        
+        displayEvents.forEach((evt, idx) => {
             const el = document.createElement('div');
-            el.className = 'order-book-item px-4 fade-in-up';
+            el.className = 'order-book-item px-3 fade-in-up';
             el.style.animationDelay = `${idx * 0.01}s`;
             el.style.position = 'relative';
             const colorClass = evt.isUp ? 'text-[#0ecb81]' : 'text-[#f6465d]';
             
-            // 根据粒度显示不同的时间标签
+            // 根据粒度显示不同的时间标签（简化移动端显示）
             let timeLabel = '';
-            let titleText = '';
             if (currentGranularity === 'day') {
-                timeLabel = evt.year;
-                titleText = `点击查看 ${evt.year} 详情`;
+                timeLabel = evt.year.substr(5); // 只显示月-日
             } else if (currentGranularity === 'month') {
-                timeLabel = evt.year;
-                titleText = `点击查看 ${evt.year} 详情`;
+                timeLabel = evt.year.substr(5); // 只显示月份
             } else {
-                timeLabel = `${evt.year} <span class="scale-75 inline-block opacity-50">(${evt.age}岁)</span>`;
-                titleText = `点击查看 ${evt.year} 年 (${evt.age}岁) 详情`;
+                timeLabel = `${evt.year}`;
             }
             
-            // 计算深度条宽度（归一化到0-100%）
+            // 计算深度条宽度
             const priceRange = maxPrice - minPrice;
             const depthPercent = priceRange > 0 ? ((parseFloat(evt.close) - minPrice) / priceRange * 50) : 25;
             const depthClass = evt.isUp ? 'buy' : 'sell';
             
             el.innerHTML = `
                 <div class="depth-bar ${depthClass}" style="width: ${depthPercent}%;"></div>
-                <span class="text-[#848e9c] w-1/3 text-left relative z-10">${timeLabel}</span>
-                <span class="${colorClass} w-1/3 text-right font-mono relative z-10">${evt.close}</span>
-                <span class="text-white w-1/3 text-right text-[11px] relative z-10">${evt.type}</span>
+                <span class="text-[#848e9c] text-[11px] w-1/3 text-left relative z-10">${timeLabel}</span>
+                <span class="${colorClass} text-xs font-mono w-1/3 text-center relative z-10">${evt.close}</span>
+                <span class="text-white text-[10px] w-1/3 text-right relative z-10">${evt.type}</span>
             `;
-            el.title = titleText;
             el.onclick = () => { 
                 jumpToYear(evt.age);
             };
@@ -1971,22 +1923,8 @@
             renderOrderBook(dataset.events);
             
             loader.classList.add('hidden');
-
-            // --- 【刷新 UI 关键代码】 ---
-            if (currentTab === 'bazi') {
-                document.getElementById('bazi-result').innerText = dataset.bazi || '未排盘';
-                document.getElementById('strength-result').innerText = dataset.strength || '-';
-            document.getElementById('pattern-result').innerText = dataset.pattern;
-            document.getElementById('god-result').innerText = dataset.god;
-                
-                // 根据身强身弱设置颜色
-                if (dataset.strength === '身强') {
-                    document.getElementById('strength-result').style.color = colors.up;
-                } else if (dataset.strength === '身弱') {
-                    document.getElementById('strength-result').style.color = colors.down;
-                }
-            }
-            // --- 【刷新 UI 关键代码】 ---
+            
+            // 移动版已移除顶部八字信息栏，无需更新UI
 
         }, 1000); 
     }
@@ -2053,32 +1991,10 @@
         document.getElementById(`tab-${tab}`).classList.remove('text-[#848e9c]');
         document.getElementById(`tab-${tab}`).classList.add('bg-[#2b3139]', 'text-white');
         
-        // 根据不同类型显示不同的排盘结果
-        const baziEl = document.getElementById('bazi-result');
-        const strengthEl = document.getElementById('strength-result');
-        const patternEl = document.getElementById('pattern-result');
-        const godEl = document.getElementById('god-result');
-        
-        if (tab === 'ziwei') {
-            baziEl.innerText = '紫微斗数命盘';
-            strengthEl.innerText = '庙旺';
-            strengthEl.style.color = colors.up;
-            patternEl.innerText = '紫微在午 (帝王坐命)';
-            godEl.innerText = '天府星系 / 化权';
-        } else if (currentDataset) {
-            baziEl.innerText = currentDataset.bazi || '未排盘';
-            strengthEl.innerText = currentDataset.strength || '-';
-            if (currentDataset.strength === '身强') {
-                strengthEl.style.color = colors.up;
-            } else if (currentDataset.strength === '身弱') {
-                strengthEl.style.color = colors.down;
-            }
-            patternEl.innerText = currentDataset.pattern;
-            godEl.innerText = currentDataset.god;
-        }
+        // 移动版已移除顶部八字信息栏，切换排盘类型只影响计算逻辑
     }
 
-    // 显示详细八字信息
+    // 显示详细八字信息（移动端优化版）
     function showBaziDetail() {
         if (!currentBaziAnalysis) {
             showCustomAlert('请先生成人生K线！', 'info');
@@ -2087,44 +2003,47 @@
         
         const bz = currentBaziAnalysis;
         
-        // 五行统计
+        // 五行统计（移动端优化：竖向排列）
         let wuXingHTML = '';
         for (let wx in bz.wuXingCount) {
-            const count = bz.wuXingCount[wx];
+            const count = bz.wuXingCount[wx].toFixed(1);
             const wuXingColor = {
                 '木': '#0ecb81', '火': '#f6465d', '土': '#f0b90b', 
                 '金': '#d4d4d4', '水': '#3b82f6'
             };
-            wuXingHTML += `<span style="color: ${wuXingColor[wx]}; margin-right: 12px;">${wx}: ${count}</span>`;
+            wuXingHTML += `<div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                <span style="color: ${wuXingColor[wx]}; font-weight: bold;">${wx}</span>
+                <span style="color: #eaecef;">${count}</span>
+            </div>`;
         }
         
-        // 大运列表
+        // 大运列表（移动端优化）
         let dayunHTML = '';
         bz.daYun.forEach((dy, idx) => {
             const isCurrent = dy.age <= (new Date().getFullYear() - bz.birthYear) && 
                              (new Date().getFullYear() - bz.birthYear) < dy.age + 10;
-            const highlight = isCurrent ? 'background: rgba(240, 185, 11, 0.2); border-left: 3px solid #f0b90b;' : '';
+            const highlight = isCurrent ? 'background: rgba(240, 185, 11, 0.15); border-left: 2px solid #f0b90b;' : '';
             dayunHTML += `
-                <div style="padding: 8px 12px; border-bottom: 1px solid #2b3139; ${highlight}">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span style="color: #eaecef; font-weight: bold;">${dy.ganzhi}</span>
-                        <span style="color: #848e9c; font-size: 11px;">${dy.range}</span>
+                <div style="padding: 6px 10px; border-bottom: 1px solid #2b3139; ${highlight}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #eaecef; font-weight: bold; font-size: 13px;">${dy.ganzhi}</span>
+                        <span style="color: #848e9c; font-size: 10px;">${dy.range}</span>
                     </div>
-                    <div style="color: #848e9c; font-size: 11px; margin-top: 4px;">${dy.nayin}</div>
+                    <div style="color: #848e9c; font-size: 10px; margin-top: 2px;">${dy.nayin}</div>
                 </div>
             `;
         });
         
-        // 流年列表
+        // 流年列表（移动端优化）
         let liunianHTML = '';
         bz.liuNian.forEach((ln, idx) => {
             const isCurrent = ln.year === new Date().getFullYear();
-            const highlight = isCurrent ? 'background: rgba(240, 185, 11, 0.2); border-left: 3px solid #f0b90b;' : '';
+            const highlight = isCurrent ? 'background: rgba(240, 185, 11, 0.15); border-left: 2px solid #f0b90b;' : '';
             liunianHTML += `
-                <div style="padding: 6px 12px; border-bottom: 1px solid #2b3139; ${highlight}">
+                <div style="padding: 5px 10px; border-bottom: 1px solid #2b3139; ${highlight}">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #eaecef;">${ln.year}年 <span style="color: #f0b90b;">${ln.ganzhi}</span></span>
-                        <span style="color: #848e9c; font-size: 10px;">${ln.age}岁 · ${ln.nayin}</span>
+                        <span style="color: #eaecef; font-size: 12px;">${ln.year}年 <span style="color: #f0b90b; font-weight: bold;">${ln.ganzhi}</span></span>
+                        <span style="color: #848e9c; font-size: 9px;">${ln.age}岁 · ${ln.nayin}</span>
                     </div>
                 </div>
             `;
@@ -2136,80 +2055,92 @@
         
         const detailPanel = document.createElement('div');
         detailPanel.className = 'help-panel';
-        detailPanel.style.maxWidth = '800px';
+        // 移动端优化：使用更合适的宽度和高度
+        detailPanel.style.maxWidth = '95vw';
+        detailPanel.style.width = '95vw';
         detailPanel.style.maxHeight = '85vh';
+        detailPanel.style.padding = '15px';
         
         detailPanel.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #2b3139; padding-bottom: 15px;">
-                <h2 style="color: #f0b90b; font-size: 20px; font-weight: bold;">🔮 八字详批</h2>
-                <button onclick="closeCustomAlert()" style="background: none; border: none; color: #848e9c; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #2b3139; padding-bottom: 10px;">
+                <h2 style="color: #f0b90b; font-size: 16px; font-weight: bold;">🔮 八字详批</h2>
+                <button onclick="closeCustomAlert()" style="background: none; border: none; color: #848e9c; font-size: 28px; cursor: pointer; line-height: 1; padding: 0; width: 32px; height: 32px;">&times;</button>
             </div>
             
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px;">
-                <!-- 左侧：四柱八字 -->
+            <div style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: calc(85vh - 120px);">
+                <!-- 四柱八字 -->
                 <div>
-                    <h3 style="color: #f0b90b; font-size: 16px; margin-bottom: 15px;">📅 四柱八字</h3>
-                    <div style="background: #1e2329; padding: 15px; border-radius: 8px;">
-                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+                    <h3 style="color: #f0b90b; font-size: 13px; margin-bottom: 8px; font-weight: bold;">📅 四柱八字</h3>
+                    <div style="background: #1e2329; padding: 10px; border-radius: 6px;">
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center;">
                             <div>
-                                <div style="color: #848e9c; font-size: 11px; margin-bottom: 5px;">年柱</div>
-                                <div style="color: #f0b90b; font-size: 16px; font-weight: bold; margin-bottom: 3px;">${bz.year.ganzhi}</div>
-                                <div style="color: #0ecb81; font-size: 10px;">${bz.year.nayin}</div>
-                            </div>
-                            <div>
-                                <div style="color: #848e9c; font-size: 11px; margin-bottom: 5px;">月柱</div>
-                                <div style="color: #f0b90b; font-size: 16px; font-weight: bold; margin-bottom: 3px;">${bz.month.ganzhi}</div>
-                                <div style="color: #0ecb81; font-size: 10px;">${bz.month.nayin}</div>
-                            </div>
-                            <div style="background: rgba(240, 185, 11, 0.1); border-radius: 4px;">
-                                <div style="color: #848e9c; font-size: 11px; margin-bottom: 5px;">日柱 ⭐</div>
-                                <div style="color: #f0b90b; font-size: 16px; font-weight: bold; margin-bottom: 3px;">${bz.day.ganzhi}</div>
-                                <div style="color: #0ecb81; font-size: 10px;">${bz.day.nayin}</div>
+                                <div style="color: #848e9c; font-size: 9px; margin-bottom: 3px;">年柱</div>
+                                <div style="color: #f0b90b; font-size: 13px; font-weight: bold; margin-bottom: 2px;">${bz.year.ganzhi}</div>
+                                <div style="color: #0ecb81; font-size: 8px; line-height: 1.3;">${bz.year.nayin}</div>
                             </div>
                             <div>
-                                <div style="color: #848e9c; font-size: 11px; margin-bottom: 5px;">时柱</div>
-                                <div style="color: #f0b90b; font-size: 16px; font-weight: bold; margin-bottom: 3px;">${bz.hour.ganzhi}</div>
-                                <div style="color: #0ecb81; font-size: 10px;">${bz.hour.nayin}</div>
+                                <div style="color: #848e9c; font-size: 9px; margin-bottom: 3px;">月柱</div>
+                                <div style="color: #f0b90b; font-size: 13px; font-weight: bold; margin-bottom: 2px;">${bz.month.ganzhi}</div>
+                                <div style="color: #0ecb81; font-size: 8px; line-height: 1.3;">${bz.month.nayin}</div>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <h3 style="color: #f0b90b; font-size: 16px; margin: 20px 0 15px;">⚖️ 五行统计</h3>
-                    <div style="background: #1e2329; padding: 15px; border-radius: 8px;">
-                        <div style="font-size: 14px;">${wuXingHTML}</div>
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #2b3139; color: #848e9c; font-size: 12px;">
-                            日主: <span style="color: #f0b90b;">${bz.dayGan}</span> (${bz.strength})
-                        </div>
-                    </div>
-                    
-                    <h3 style="color: #f0b90b; font-size: 16px; margin: 20px 0 15px;">🎯 命理分析</h3>
-                    <div style="background: #1e2329; padding: 15px; border-radius: 8px;">
-                        <div style="margin-bottom: 10px;">
-                            <span style="color: #848e9c; font-size: 12px;">格局：</span>
-                            <span style="color: #eaecef; font-weight: bold;">${bz.pattern}</span>
-                        </div>
-                        <div>
-                            <span style="color: #848e9c; font-size: 12px;">喜用神：</span>
-                            <span style="color: #0ecb81;">${bz.god}</span>
+                            <div style="background: rgba(240, 185, 11, 0.1); border-radius: 4px; padding: 3px 0;">
+                                <div style="color: #848e9c; font-size: 9px; margin-bottom: 3px;">日柱⭐</div>
+                                <div style="color: #f0b90b; font-size: 13px; font-weight: bold; margin-bottom: 2px;">${bz.day.ganzhi}</div>
+                                <div style="color: #0ecb81; font-size: 8px; line-height: 1.3;">${bz.day.nayin}</div>
+                            </div>
+                            <div>
+                                <div style="color: #848e9c; font-size: 9px; margin-bottom: 3px;">时柱</div>
+                                <div style="color: #f0b90b; font-size: 13px; font-weight: bold; margin-bottom: 2px;">${bz.hour.ganzhi}</div>
+                                <div style="color: #0ecb81; font-size: 8px; line-height: 1.3;">${bz.hour.nayin}</div>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- 右侧：大运和流年 -->
+                <!-- 五行统计 -->
                 <div>
-                    <h3 style="color: #f0b90b; font-size: 16px; margin-bottom: 15px;">🌊 大运流转</h3>
-                    <div style="background: #1e2329; border-radius: 8px; max-height: 280px; overflow-y: auto;">
+                    <h3 style="color: #f0b90b; font-size: 13px; margin-bottom: 8px; font-weight: bold;">⚖️ 五行统计</h3>
+                    <div style="background: #1e2329; padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px;">${wuXingHTML}</div>
+                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #2b3139; color: #848e9c; font-size: 10px;">
+                            日主: <span style="color: #f0b90b; font-weight: bold;">${bz.dayGan}</span> <span style="color: #eaecef;">(${bz.strength})</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 命理分析 -->
+                <div>
+                    <h3 style="color: #f0b90b; font-size: 13px; margin-bottom: 8px; font-weight: bold;">🎯 命理分析</h3>
+                    <div style="background: #1e2329; padding: 10px; border-radius: 6px;">
+                        <div style="margin-bottom: 6px;">
+                            <div style="color: #848e9c; font-size: 10px; margin-bottom: 3px;">格局：</div>
+                            <div style="color: #eaecef; font-weight: bold; font-size: 11px; line-height: 1.4;">${bz.pattern}</div>
+                        </div>
+                        <div>
+                            <div style="color: #848e9c; font-size: 10px; margin-bottom: 3px;">喜用神：</div>
+                            <div style="color: #0ecb81; font-size: 10px; line-height: 1.4;">${bz.god}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 大运流转 -->
+                <div>
+                    <h3 style="color: #f0b90b; font-size: 13px; margin-bottom: 8px; font-weight: bold;">🌊 大运流转</h3>
+                    <div style="background: #1e2329; border-radius: 6px; max-height: 160px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
                         ${dayunHTML}
                     </div>
-                    
-                    <h3 style="color: #f0b90b; font-size: 16px; margin: 20px 0 15px;">📆 流年运势</h3>
-                    <div style="background: #1e2329; border-radius: 8px; max-height: 300px; overflow-y: auto;">
+                </div>
+                
+                <!-- 流年运势 -->
+                <div>
+                    <h3 style="color: #f0b90b; font-size: 13px; margin-bottom: 8px; font-weight: bold;">📆 流年运势</h3>
+                    <div style="background: #1e2329; border-radius: 6px; max-height: 160px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
                         ${liunianHTML}
                     </div>
                 </div>
             </div>
             
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #2b3139; text-align: center; color: #848e9c; font-size: 11px;">
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #2b3139; text-align: center; color: #848e9c; font-size: 10px;">
                 💡 以上信息仅供参考，命运掌握在自己手中
             </div>
         `;
@@ -2333,69 +2264,62 @@
         setTimeout(() => scoreEl.classList.remove('pulse'), 2000);
     }
 
-    // 初始化时，需要有一个地方来放置格局和喜用神结果
-    // 由于您的HTML中缺少这个区域，请确保您的HTML中有以下两个元素的占位符：
-    // <div id="pattern-result"></div>
-    // <div id="god-result"></div>
-
     document.addEventListener('DOMContentLoaded', () => {
-        // 在顶部行情栏下方添加一个占位符，以便显示格局信息
-        const header = document.querySelector('header');
-        const infoBar = document.createElement('div');
-        infoBar.className = 'flex gap-6 px-4 py-2 text-xs border-b border-[#2b3139] bg-[#1e2329] flex-shrink-0';
-        infoBar.innerHTML = `
-            <div onclick="showBaziDetail()" style="cursor: pointer;" class="hover:opacity-80 transition" title="点击查看详细信息">
-                <div class="text-[#848e9c]">八字命盘 <span class="text-[10px]">▼</span></div>
-                <div class="text-[#f0b90b] font-medium text-[11px]" id="bazi-result">未排盘</div>
-            </div>
-            <div>
-                <div class="text-[#848e9c]">日主</div>
-                <div class="text-white font-medium" id="strength-result">-</div>
-            </div>
-            <div>
-                <div class="text-[#848e9c]">格局判定</div>
-                <div class="text-white font-medium" id="pattern-result">未排盘</div>
-            </div>
-            <div>
-                <div class="text-[#848e9c]">喜用神</div>
-                <div class="text-[#0ecb81] font-medium" id="god-result">请点击生成</div>
-            </div>
-            <div style="margin-left: auto;">
-                <div class="text-[#848e9c]">快捷键</div>
-                <div class="text-[#848e9c] text-[10px]">D:日K | K:月K | Y:年K | A:MA | L:做多 | S:躺平 | H:帮助</div>
-            </div>
-            <div>
-                <button onclick="toggleHelp()" class="px-3 py-1 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-[#f0b90b] transition" title="帮助信息 (H键)">
-                    ❓ 帮助
-                </button>
-            </div>
-        `;
-        header.parentNode.insertBefore(infoBar, header.nextSibling);
+        // 初始化交易面板，默认显示设置页
+        switchTradeTab('settings');
 
-        // 初始化行情滚动条
-        initTickerTape();
-        
-        // 初始化交易面板
-        switchTradeTab('orderbook');
-        
         runSimulation();
         
         // 添加键盘快捷键
         setupKeyboardShortcuts();
         
-        // 定时更新行情
-        setInterval(() => {
-            // 随机更新行情数据
-            tickerData.forEach(item => {
-                const change = (Math.random() - 0.5) * 0.5;
-                item.price = Math.max(10, item.price + change);
-                const changePercent = ((Math.random() - 0.5) * 5).toFixed(2);
-                item.change = (changePercent >= 0 ? '+' : '') + changePercent + '%';
-                item.isUp = changePercent >= 0;
-            });
-            updateTickerTape();
-        }, 3000);
+        // 添加触摸滑动支持
+        setupTouchGestures();
     });
+    
+    // 触摸手势支持
+    function setupTouchGestures() {
+        const panel = document.getElementById('bottom-panel');
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+        
+        panel.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+            isDragging = true;
+        }, { passive: true });
+        
+        panel.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            currentY = e.touches[0].clientY;
+            const deltaY = currentY - startY;
+            
+            // 只允许向下拖动收起，向上拖动展开
+            if (bottomPanelExpanded && deltaY > 0) {
+                // 正在展开，向下拖动收起
+                panel.style.transform = `translateY(${Math.min(deltaY, 200)}px)`;
+            } else if (!bottomPanelExpanded && deltaY < 0) {
+                // 正在收起，向上拖动展开
+                const currentTranslate = panel.offsetHeight - 60;
+                panel.style.transform = `translateY(${currentTranslate + Math.max(deltaY, -200)}px)`;
+            }
+        }, { passive: true });
+        
+        panel.addEventListener('touchend', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            const deltaY = currentY - startY;
+            panel.style.transform = '';
+            
+            // 如果拖动距离超过50px，切换状态
+            if (Math.abs(deltaY) > 50) {
+                if ((bottomPanelExpanded && deltaY > 0) || (!bottomPanelExpanded && deltaY < 0)) {
+                    toggleBottomPanel();
+                }
+            }
+        }, { passive: true });
+    }
 
     // 缩放控制函数
     function zoomIn() {
@@ -2440,75 +2364,51 @@
             <div class="help-section">
                 <h3>🎯 功能介绍</h3>
                 <ul>
-                    <li>完整的交易所界面：行情滚动、盘口深度、成交记录</li>
-                    <li>以股票K线的形式展示人生运势走向</li>
-                    <li>基于出生日期模拟八字排盘和命理分析</li>
-                    <li>点击八字命盘可查看四柱、纳音、大运、流年详情</li>
-                    <li>支持日K/月K/年K三种时间粒度查看</li>
-                    <li>支持MA、EMA、BOLL等多种技术指标</li>
-                    <li>多面板切换：盘口/成交/持仓/资产</li>
-                    <li>杠杆交易模拟，支持开多/开空操作</li>
-                    <li>24小时统计数据实时更新</li>
+                    <li>📱 移动端专属界面，触摸优化</li>
+                    <li>📊 完整交易所体验：行情滚动、盘口深度、成交记录</li>
+                    <li>📈 以K线形式展示人生运势走向</li>
+                    <li>🔮 精确八字排盘和30+种格局判定</li>
+                    <li>📅 支持日K/月K/年K三种时间粒度</li>
+                    <li>📉 支持MA、EMA、BOLL等技术指标</li>
+                    <li>💼 杠杆交易模拟，支持开多/开空</li>
+                    <li>📊 24小时统计数据实时更新</li>
                 </ul>
             </div>
 
             <div class="help-section">
-                <h3>⌨️ 键盘快捷键</h3>
+                <h3>👆 触摸操作</h3>
                 <ul>
-                    <li><b>空格</b> - 重新生成人生K线</li>
-                    <li><b>D</b> - 切换到日K粒度 (查看每天)</li>
-                    <li><b>K</b> - 切换到月K粒度 (查看每月)</li>
-                    <li><b>Y</b> - 切换到年K粒度 (查看每年)</li>
-                    <li><b>A</b> - 切换MA均线指标</li>
-                    <li><b>E</b> - 切换EMA指数移动平均</li>
-                    <li><b>B</b> - 切换BOLL布林带</li>
-                    <li><b>L</b> - 执行"做多"操作</li>
-                    <li><b>S</b> - 执行"躺平"操作</li>
-                    <li><b>1</b> - 切换到1年周期视图</li>
-                    <li><b>2</b> - 切换到10年周期视图</li>
-                    <li><b>Z</b> - 重置图表缩放</li>
-                </ul>
-            </div>
-
-            <div class="help-section">
-                <h3>📊 图表操作</h3>
-                <ul>
-                    <li>鼠标滚轮 - 缩放图表</li>
-                    <li>鼠标拖拽 - 平移图表</li>
-                    <li>悬停K线 - 查看详细信息</li>
-                    <li>点击右侧年份 - 快速跳转到对应时期</li>
-                    <li>拖动底部滑块 - 精确调整显示区间</li>
                     <li><b>点击八字命盘</b> - 查看四柱、纳音、大运、流年详情</li>
+                    <li><b>点击盘口年份</b> - 快速跳转到对应时期</li>
+                    <li><b>上下滑动面板</b> - 展开/收起底部交易面板</li>
+                    <li><b>点击手柄</b> - 快速切换面板状态</li>
+                    <li><b>双指缩放</b> - 缩放图表（部分浏览器支持）</li>
+                    <li><b>单指拖拽</b> - 平移图表查看不同时期</li>
+                    <li><b>长按K线</b> - 查看详细信息</li>
+                    <li><b>滑动工具栏</b> - 查看更多指标选项</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>🗂️ 面板说明</h3>
+                <ul>
+                    <li><b>盘口</b> - 显示各年份运势和事件</li>
+                    <li><b>成交</b> - 显示模拟成交记录</li>
+                    <li><b>设置</b> - 选择出生日期时辰，切换排盘类型</li>
                 </ul>
             </div>
 
             <div class="help-section">
                 <h3>🔮 术语解释</h3>
                 <ul>
-                    <li><b>运势分数</b> - 当前人生状态评分(10-99)</li>
-                    <li><b>四柱八字</b> - 年月日时四柱，每柱由天干地支组成</li>
-                    <li><b>天干地支</b> - 中国古代纪年法，十天干配十二地支</li>
-                    <li><b>日主</b> - 八字中代表自己的天干，身强身弱反映命局强弱</li>
+                    <li><b>四柱八字</b> - 年月日时四柱，天干地支组合</li>
+                    <li><b>日主</b> - 代表自己的天干，身强身弱反映命局</li>
                     <li><b>十神</b> - 比肩劫财食神伤官偏财正财七杀正官偏印正印</li>
-                    <li><b>纳音</b> - 六十甲子纳音五行，如海中金、炉中火等</li>
-                    <li><b>大运</b> - 每十年一个大运周期，影响人生运势走向</li>
-                    <li><b>流年</b> - 每年的干支，与命局互动产生吉凶变化</li>
-                    <li><b>格局判定</b> - 根据八字五行生克和十神关系判定命理格局</li>
-                    <li><b>喜用神</b> - 对命局有利的五行属性，调候补益之神</li>
-                    <li><b>精气神</b> - 生命活力指标（成交量）</li>
-                    <li><b>做多/努力</b> - 积极奋进的人生态度</li>
-                    <li><b>做空/躺平</b> - 放松休整的生活方式</li>
-                </ul>
-            </div>
-            
-            <div class="help-section">
-                <h3>📋 支持的格局类型</h3>
-                <ul>
-                    <li><b>特殊格局</b> - 从财格、从杀格、从儿格、专旺格、化气格等</li>
-                    <li><b>正格</b> - 正官格、七杀格、正财格、偏财格、食神格、伤官格等</li>
-                    <li><b>组合格</b> - 官印相生格、杀印相生格、财官双美格、食神生财格等</li>
-                    <li><b>特色格</b> - 建禄格、阳刃格、伤官见官格、枭神夺食格等</li>
-                    <li><b>共计30+种格局</b>，涵盖传统命理主要格局类型</li>
+                    <li><b>纳音</b> - 六十甲子纳音五行</li>
+                    <li><b>大运</b> - 每十年一个大运周期</li>
+                    <li><b>流年</b> - 每年的干支运势</li>
+                    <li><b>格局</b> - 根据五行生克判定的命理格局（30+种）</li>
+                    <li><b>喜用神</b> - 对命局有利的五行</li>
                 </ul>
             </div>
 
