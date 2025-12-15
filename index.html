@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIFE/TIME - 人生交易所</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --bg-base: #0b0e11;      /* 整体背景 */
+            --bg-card: #1e2329;      /* 卡片背景 */
+            --text-primary: #eaecef; /*主要文字 */
+            --text-secondary: #848e9c; /* 次要文字 */
+            --up-color: #0ecb81;     /* 涨/绿 */
+            --down-color: #f6465d;   /* 跌/红 */
+            --border-color: #2b3139; /* 边框 */
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: 'Binance Plex', 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            overflow: hidden; /* 类似App体验 */
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: #474d57; border-radius: 2px; }
+
+        /* 模拟买卖盘口的列表 */
+        .order-book-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .order-book-item:hover { background-color: #2b3139; }
+
+        /* 输入框样式重写 */
+        .trade-input {
+            background-color: #2b3139;
+            border: 1px solid transparent;
+            color: white;
+            transition: all 0.2s;
+        }
+        .trade-input:focus { border-color: #f0b90b; }
+
+        /* 按钮动画 */
+        .btn-buy { background-color: var(--up-color); color: white; }
+        .btn-sell { background-color: var(--down-color); color: white; }
+        
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-left-color: #f0b90b;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <header class="h-16 border-b border-[#2b3139] flex items-center px-4 bg-[#161a1e] flex-shrink-0">
+        <div class="flex items-center gap-4 mr-8">
+            <h1 class="text-xl font-bold text-white">LIFE / TIME</h1>
+            <span class="text-xs bg-[#2b3139] px-2 py-0.5 rounded text-[#848e9c]">永续合约</span>
+        </div>
+        
+        <div class="flex gap-8 text-xs md:text-sm">
+            <div>
+                <div class="text-[#0ecb81] font-medium text-lg" id="current-score">60.00</div>
+                <div class="text-[#848e9c] text-xs">当前运势(Index)</div>
+            </div>
+            <div>
+                <div class="text-[#848e9c]">24h 最高 (人生巅峰)</div>
+                <div class="text-white" id="high-score">--</div>
+            </div>
+            <div>
+                <div class="text-[#848e9c]">24h 最低 (人生低谷)</div>
+                <div class="text-white" id="low-score">--</div>
+            </div>
+            <div>
+                <div class="text-[#848e9c]">24h 量 (精气神)</div>
+                <div class="text-white" id="vol-score">--</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        
+        <div class="flex-1 flex flex-col relative border-r border-[#2b3139]">
+            <div class="h-10 border-b border-[#2b3139] flex items-center px-4 gap-4 text-xs text-[#848e9c] bg-[#161a1e]">
+                <span class="text-white cursor-pointer hover:text-[#f0b90b]">时间</span>
+                <span class="cursor-pointer hover:text-white">1年</span>
+                <span class="cursor-pointer hover:text-white">10年(大运)</span>
+                <span class="text-[#848e9c]">|</span>
+                <span class="cursor-pointer hover:text-white">指标</span>
+                <span class="text-[#f0b90b]">MA</span>
+                <span class="text-[#d897cd]">EMA</span>
+                <span class="text-[#6885ce]">BOLL</span>
+            </div>
+
+            <div id="kline-chart" class="w-full h-full bg-[#161a1e]"></div>
+
+            <div id="chart-loader" class="absolute inset-0 bg-[#0b0e11] z-50 flex flex-col items-center justify-center hidden">
+                <div class="loader mb-2"></div>
+                <div class="text-xs text-[#848e9c]">正在连接命运节点...</div>
+            </div>
+        </div>
+
+        <div class="w-72 bg-[#161a1e] flex flex-col flex-shrink-0">
+            
+            <div class="p-4 border-b border-[#2b3139]">
+                <div class="flex gap-2 mb-4 bg-[#0b0e11] p-1 rounded">
+                    <button class="flex-1 py-1 text-xs rounded bg-[#2b3139] text-white">八字排盘</button>
+                    <button class="flex-1 py-1 text-xs rounded text-[#848e9c] hover:text-white">紫微斗数</button>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-[10px] text-[#848e9c] mb-1 block">出生日期</label>
+                        <input type="date" id="dob" value="1998-08-08" class="trade-input w-full p-2 rounded text-xs outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-[#848e9c] mb-1 block">出生时辰</label>
+                        <select class="trade-input w-full p-2 rounded text-xs outline-none">
+                            <option>吉时 (Random)</option>
+                            <option>子时 (23-01)</option>
+                            <option>午时 (11-13)</option>
+                        </select>
+                    </div>
+                    <button onclick="runSimulation()" class="w-full py-2.5 rounded bg-[#f0b90b] text-black font-bold text-sm hover:opacity-90 transition">
+                        生成人生 K 线
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <div class="px-4 py-2 text-xs text-[#848e9c] flex justify-between border-b border-[#2b3139]">
+                    <span>年份/年龄</span>
+                    <span>运势(Price)</span>
+                    <span>事件(Event)</span>
+                </div>
+                
+                <div id="order-book" class="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+                    </div>
+            </div>
+
+            <div class="p-3 border-t border-[#2b3139]">
+                <div class="flex gap-2">
+                    <button class="flex-1 py-2 rounded bg-[#0ecb81] text-white text-xs font-bold">
+                        买入做多 (努力)
+                    </button>
+                    <button class="flex-1 py-2 rounded bg-[#f6465d] text-white text-xs font-bold">
+                        卖出做空 (躺平)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+    
+    // 核心配置：颜色变量
+    const colors = {
+        up: '#0ecb81',    // 绿
+        down: '#f6465d',  // 红
+        bg: '#161a1e',
+        text: '#848e9c',
+        grid: '#2b3139',
+        ma7: '#f0b90b',   // 黄线
+        ma25: '#d897cd',  // 紫线
+        ma99: '#6885ce'   // 蓝线
+    };
+
+    // 计算均线 (Moving Average)
+    function calculateMA(dayCount, data) {
+        var result = [];
+        for (var i = 0; i < data.length; i++) {
+            if (i < dayCount) {
+                result.push('-');
+                continue;
+            }
+            var sum = 0;
+            for (var j = 0; j < dayCount; j++) {
+                sum += parseFloat(data[i - j][1]); // Close price
+            }
+            result.push((sum / dayCount).toFixed(2));
+        }
+        return result;
+    }
+
+    // 模拟数据生成器 - 增加 dob 参数
+    function generateData(startYear, dob) {
+        const data = []; // [Date, Open, Close, Low, High, Vol]
+        const events = [];
+        let score = 60;
+        
+        // --- 【模拟格局与喜用神判断】 ---
+        const dateObj = new Date(dob);
+        // 获取月份 (0-11)
+        const month = dateObj.getMonth(); 
+        
+        let patternResult = "正官正印格 (平衡)"; 
+        let godResult = "喜食伤 / 喜比劫"; 
+
+        // 模拟根据季节划分格局和用神，让结果随日期变化
+        if (month >= 2 && month <= 4) { // 春季 (寅卯辰) - 木旺，身强需克泄
+            patternResult = "建禄/月劫格 (身旺)";
+            godResult = "喜金 / 喜土";
+        } else if (month >= 5 && month <= 7) { // 夏季 (巳午未) - 火旺，需水
+            patternResult = "伤官/七杀格 (强硬)";
+            godResult = "喜水 / 喜湿土";
+        } else if (month >= 8 && month <= 10) { // 秋季 (申酉戌) - 金旺，需火炼
+            patternResult = "正财偏财格 (旺财)";
+            godResult = "喜火 / 喜木";
+        } else { // 冬季 (亥子丑) - 水旺，需土制
+            patternResult = "印绶格 (智慧)";
+            godResult = "喜燥土 / 喜火";
+        }
+        // --- 【模拟格局与喜用神判断结束】 ---
+
+        // K线数据生成逻辑
+        for (let age = 0; age <= 80; age++) {
+            const year = startYear + age;
+            const trend = Math.sin(age / 7) * 12;
+            
+            let open = score;
+            let change = (Math.random() * 16 - 8) + (trend * 0.3);
+            let close = open + change;
+            
+            close = Math.max(20, Math.min(95, close));
+            
+            let low = Math.min(open, close) - Math.random() * 5;
+            let high = Math.max(open, close) + Math.random() * 5;
+            
+            low = Math.max(10, low);
+            high = Math.min(99, high);
+
+            let vol = Math.floor(Math.random() * 1000) + 500;
+            if(age > 20 && age < 50) vol += 500; 
+
+            let eventType = "平稳";
+            if (close > open && (close - open) > 5) eventType = "财星高照";
+            else if (close < open && (open - close) > 5) eventType = "七杀克身";
+
+            data.push([
+                `${year}`,   
+                open.toFixed(1),  
+                close.toFixed(1), 
+                low.toFixed(1),   
+                high.toFixed(1),  
+                vol,              
+                eventType,        
+                age               
+            ]);
+
+            events.push({ year, age, close: close.toFixed(1), type: eventType, isUp: close >= open });
+            
+            score = close;
+        }
+        // 返回包含格局信息的对象
+        return { rawData: data, events: events, pattern: patternResult, god: godResult };
+    }
+
+    function initChart(dataset) {
+        const dom = document.getElementById('kline-chart');
+        if(chartInstance) chartInstance.dispose();
+        chartInstance = echarts.init(dom);
+
+        const rawData = dataset.rawData;
+        const dates = rawData.map(item => item[0]);
+        const data = rawData.map(item => [+item[1], +item[2], +item[3], +item[4]]); // O, C, L, H
+        const volumes = rawData.map((item, index) => [index, item[5], item[1] > item[2] ? -1 : 1]); 
+
+        // 更新顶部 Header 数据
+        const allHigh = Math.max(...rawData.map(i => parseFloat(i[4])));
+        const allLow = Math.min(...rawData.map(i => parseFloat(i[3])));
+        document.getElementById('current-score').innerText = rawData[rawData.length - 1][2]; // 显示最新收盘分
+        document.getElementById('high-score').innerText = allHigh.toFixed(2);
+        document.getElementById('low-score').innerText = allLow.toFixed(2);
+        document.getElementById('vol-score').innerText = "∞"; 
+
+        const option = {
+            // ... (Echarts 配置保持不变)
+            backgroundColor: colors.bg,
+            animation: true,
+            legend: {
+                data: ['K线', 'MA7', 'MA25', 'MA99'],
+                top: 10,
+                left: 20,
+                textStyle: { color: colors.text, fontSize: 10 },
+                inactiveColor: '#444'
+            },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'cross', lineStyle: { type: 'dashed', color: '#666' } },
+                backgroundColor: 'rgba(22, 26, 30, 0.9)',
+                borderColor: colors.border,
+                textStyle: { color: colors.text, fontSize: 11 },
+                formatter: function (params) {
+                    let res = '';
+                    let kParam = params.find(p => p.seriesName === 'K线');
+                    if(kParam) {
+                        const dataIdx = kParam.dataIndex;
+                        const item = rawData[dataIdx];
+                        const color = item[2] >= item[1] ? colors.up : colors.down;
+                        const change = ((item[2] - item[1])/item[1] * 100).toFixed(2);
+                        
+                        document.getElementById('current-score').innerText = item[2];
+                        document.getElementById('current-score').style.color = color;
+
+                        res += `<div style="color:${colors.text}">时间: <b style="color:white">${item[0]} (${item[7]}岁)</b></div>`;
+                        res += `<div style="display:flex; justify-content:space-between; gap:15px; margin-top:5px;">
+                                <span>开: <b style="color:${color}">${item[1]}</b></span>
+                                <span>高: <b style="color:${color}">${item[4]}</b></span>
+                                </div>`;
+                        res += `<div style="display:flex; justify-content:space-between; gap:15px;">
+                                <span>低: <b style="color:${color}">${item[3]}</b></span>
+                                <span>收: <b style="color:${color}">${item[2]}</b></span>
+                                </div>`;
+                        res += `<div style="margin-top:5px; border-top:1px solid #333; padding-top:5px;">
+                                涨跌幅: <span style="color:${color}">${change}%</span><br>
+                                评语: <span style="color:#fff">${item[6]}</span>
+                                </div>`;
+                    }
+                    return res;
+                }
+            },
+            axisPointer: { link: { xAxisIndex: 'all' } },
+            grid: [
+                { left: '20px', right: '50px', top: '40px', height: '60%' }, 
+                { left: '20px', right: '50px', top: '75%', height: '15%' }  
+            ],
+            xAxis: [
+                {
+                    type: 'category',
+                    data: dates,
+                    axisLine: { lineStyle: { color: colors.grid } },
+                    axisLabel: { show: false }, 
+                    axisTick: { show: false }
+                },
+                {
+                    type: 'category',
+                    gridIndex: 1,
+                    data: dates,
+                    axisLine: { lineStyle: { color: colors.grid } },
+                    axisLabel: { color: colors.text, fontSize: 10 },
+                    axisTick: { show: false }
+                }
+            ],
+            yAxis: [
+                {
+                    scale: true,
+                    position: 'right', 
+                    axisLine: { show: false },
+                    splitLine: { show: true, lineStyle: { color: colors.grid, width: 0.5 } },
+                    axisLabel: { color: colors.text, fontSize: 10, formatter: '{value}' }
+                },
+                {
+                    scale: true,
+                    gridIndex: 1,
+                    position: 'right',
+                    splitNumber: 2,
+                    axisLabel: { show: false },
+                    axisLine: { show: false },
+                    splitLine: { show: false }
+                }
+            ],
+            dataZoom: [
+                { type: 'inside', xAxisIndex: [0, 1], start: 20, end: 60 },
+                { type: 'slider', xAxisIndex: [0, 1], bottom: 5, height: 15, borderColor: colors.grid, fillerColor: 'rgba(255,255,255,0.1)', handleStyle: {color: colors.text}, textStyle: {color: colors.text} }
+            ],
+            series: [
+                {
+                    name: 'K线',
+                    type: 'candlestick',
+                    data: data,
+                    itemStyle: {
+                        color: colors.up,        
+                        color0: colors.down,     
+                        borderColor: colors.up,  
+                        borderColor0: colors.down 
+                    }
+                },
+                {
+                    name: 'MA7',
+                    type: 'line',
+                    data: calculateMA(7, data),
+                    smooth: true,
+                    showSymbol: false,
+                    lineStyle: { width: 1, color: colors.ma7 }
+                },
+                {
+                    name: 'MA25',
+                    type: 'line',
+                    data: calculateMA(25, data),
+                    smooth: true,
+                    showSymbol: false,
+                    lineStyle: { width: 1, color: colors.ma25 }
+                },
+                {
+                    name: 'MA99',
+                    type: 'line',
+                    data: calculateMA(99, data),
+                    smooth: true,
+                    showSymbol: false,
+                    lineStyle: { width: 1, color: colors.ma99 }
+                },
+                {
+                    name: '能量',
+                    type: 'bar',
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
+                    data: volumes,
+                    itemStyle: {
+                        color: function(params) {
+                            const kData = data[params.dataIndex];
+                            return kData[1] > kData[0] ? colors.up : colors.down;
+                        }
+                    }
+                }
+            ]
+        };
+        chartInstance.setOption(option);
+        
+        window.addEventListener('resize', () => chartInstance.resize());
+    }
+
+    function renderOrderBook(events) {
+        const container = document.getElementById('order-book');
+        container.innerHTML = ''; 
+        
+        events.slice().reverse().forEach(evt => {
+            const el = document.createElement('div');
+            el.className = 'order-book-item px-4';
+            const colorClass = evt.isUp ? 'text-[#0ecb81]' : 'text-[#f6465d]';
+            
+            el.innerHTML = `
+                <span class="text-[#848e9c] w-1/3 text-left">${evt.year} <span class="scale-75 inline-block opacity-50">(${evt.age})</span></span>
+                <span class="${colorClass} w-1/3 text-right font-mono">${evt.close}</span>
+                <span class="text-white w-1/3 text-right">${evt.type}</span>
+            `;
+            el.onclick = () => { /* Add chart zoom logic */ };
+            container.appendChild(el);
+        });
+    }
+
+    function runSimulation() {
+        const loader = document.getElementById('chart-loader');
+        
+        loader.classList.remove('hidden');
+        
+        setTimeout(() => {
+            const dob = document.getElementById('dob').value;
+            const year = parseInt(dob.split('-')[0]);
+            
+            // 将 dob 传递给生成函数
+            const dataset = generateData(year, dob); 
+            
+            initChart(dataset);
+            renderOrderBook(dataset.events);
+            
+            loader.classList.add('hidden');
+
+            // --- 【刷新 UI 关键代码】 ---
+            document.getElementById('pattern-result').innerText = dataset.pattern;
+            document.getElementById('god-result').innerText = dataset.god;
+            // --- 【刷新 UI 关键代码】 ---
+
+        }, 800); 
+    }
+
+    // 初始化时，需要有一个地方来放置格局和喜用神结果
+    // 由于您的HTML中缺少这个区域，请确保您的HTML中有以下两个元素的占位符：
+    // <div id="pattern-result"></div>
+    // <div id="god-result"></div>
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // 在顶部行情栏下方添加一个占位符，以便显示格局信息
+        const header = document.querySelector('header');
+        const infoBar = document.createElement('div');
+        infoBar.className = 'flex gap-8 px-4 py-2 text-xs border-b border-[#2b3139] bg-[#1e2329] flex-shrink-0';
+        infoBar.innerHTML = `
+            <div>
+                <div class="text-[#848e9c]">格局判定</div>
+                <div class="text-white font-medium" id="pattern-result">未排盘</div>
+            </div>
+            <div>
+                <div class="text-[#848e9c]">喜用神</div>
+                <div class="text-[#0ecb81] font-medium" id="god-result">请点击生成</div>
+            </div>
+        `;
+        header.parentNode.insertBefore(infoBar, header.nextSibling);
+
+        runSimulation();
+    });
+
+    </script>
+</body>
+</html>
