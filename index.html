@@ -36,8 +36,18 @@
             padding: 2px 0;
             font-size: 12px;
             cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
         }
-        .order-book-item:hover { background-color: #2b3139; }
+        .order-book-item:hover { 
+            background-color: #2b3139;
+            border-left-color: #f0b90b;
+            padding-left: 12px;
+        }
+        .order-book-item.active {
+            background-color: rgba(240, 185, 11, 0.1);
+            border-left-color: #f0b90b;
+        }
 
         /* 输入框样式重写 */
         .trade-input {
@@ -61,6 +71,135 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 提示框样式 */
+        .custom-alert {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1e2329 0%, #2b3139 100%);
+            border: 1px solid #f0b90b;
+            border-radius: 12px;
+            padding: 30px 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            z-index: 1000;
+            min-width: 300px;
+            text-align: center;
+            animation: alertPop 0.3s ease-out;
+        }
+        @keyframes alertPop {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        .custom-alert-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 999;
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        /* 脉冲动画 */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+
+        /* 淡入动画 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        /* 缩放按钮样式 */
+        .zoom-controls {
+            position: absolute;
+            top: 50px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .zoom-btn {
+            width: 32px;
+            height: 32px;
+            background: rgba(43, 49, 57, 0.9);
+            border: 1px solid #2b3139;
+            border-radius: 4px;
+            color: #848e9c;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .zoom-btn:hover {
+            background: #2b3139;
+            color: #f0b90b;
+            border-color: #f0b90b;
+        }
+
+        /* 帮助面板 */
+        .help-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1e2329 0%, #2b3139 100%);
+            border: 1px solid #f0b90b;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            z-index: 1000;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: alertPop 0.3s ease-out;
+        }
+        .help-section {
+            margin-bottom: 20px;
+        }
+        .help-section h3 {
+            color: #f0b90b;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .help-section ul {
+            list-style: none;
+            padding: 0;
+        }
+        .help-section li {
+            color: #eaecef;
+            font-size: 13px;
+            line-height: 1.8;
+            padding-left: 15px;
+            position: relative;
+        }
+        .help-section li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #0ecb81;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -95,21 +234,34 @@
         
         <div class="flex-1 flex flex-col relative border-r border-[#2b3139]">
             <div class="h-10 border-b border-[#2b3139] flex items-center px-4 gap-4 text-xs text-[#848e9c] bg-[#161a1e]">
-                <span class="text-white cursor-pointer hover:text-[#f0b90b]">时间</span>
-                <span class="cursor-pointer hover:text-white">1年</span>
-                <span class="cursor-pointer hover:text-white">10年(大运)</span>
+                <span class="text-white cursor-pointer hover:text-[#f0b90b]">粒度</span>
+                <span id="granularity-day" class="cursor-pointer hover:text-white" onclick="switchGranularity('day')">日K</span>
+                <span id="granularity-month" class="cursor-pointer hover:text-white" onclick="switchGranularity('month')">月K</span>
+                <span id="granularity-year" class="cursor-pointer hover:text-white text-[#f0b90b]" onclick="switchGranularity('year')">年K</span>
+                <span class="text-[#848e9c]">|</span>
+                <span class="text-white cursor-pointer hover:text-[#f0b90b]">周期</span>
+                <span id="period-1y" class="cursor-pointer hover:text-white text-[#f0b90b]" onclick="switchPeriod('1y')">1年</span>
+                <span id="period-10y" class="cursor-pointer hover:text-white" onclick="switchPeriod('10y')">10年</span>
                 <span class="text-[#848e9c]">|</span>
                 <span class="cursor-pointer hover:text-white">指标</span>
-                <span class="text-[#f0b90b]">MA</span>
-                <span class="text-[#d897cd]">EMA</span>
-                <span class="text-[#6885ce]">BOLL</span>
+                <span id="indicator-ma" class="text-[#f0b90b] cursor-pointer" onclick="toggleIndicator('ma')">MA</span>
+                <span id="indicator-ema" class="text-[#848e9c] cursor-pointer hover:text-white" onclick="toggleIndicator('ema')">EMA</span>
+                <span id="indicator-boll" class="text-[#848e9c] cursor-pointer hover:text-white" onclick="toggleIndicator('boll')">BOLL</span>
             </div>
 
             <div id="kline-chart" class="w-full h-full bg-[#161a1e]"></div>
 
+            <!-- 缩放控制按钮 -->
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick="zoomIn()" title="放大 (滚轮上)">+</button>
+                <button class="zoom-btn" onclick="zoomOut()" title="缩小 (滚轮下)">−</button>
+                <button class="zoom-btn" onclick="resetZoom()" title="重置 (Z键)">⟲</button>
+            </div>
+
             <div id="chart-loader" class="absolute inset-0 bg-[#0b0e11] z-50 flex flex-col items-center justify-center hidden">
-                <div class="loader mb-2"></div>
-                <div class="text-xs text-[#848e9c]">正在连接命运节点...</div>
+                <div class="loader mb-4"></div>
+                <div class="text-sm text-[#eaecef] mb-2">正在连接命运节点...</div>
+                <div id="loading-tips" class="text-xs text-[#848e9c] max-w-xs text-center"></div>
             </div>
         </div>
 
@@ -117,8 +269,8 @@
             
             <div class="p-4 border-b border-[#2b3139]">
                 <div class="flex gap-2 mb-4 bg-[#0b0e11] p-1 rounded">
-                    <button class="flex-1 py-1 text-xs rounded bg-[#2b3139] text-white">八字排盘</button>
-                    <button class="flex-1 py-1 text-xs rounded text-[#848e9c] hover:text-white">紫微斗数</button>
+                    <button id="tab-bazi" class="flex-1 py-1 text-xs rounded bg-[#2b3139] text-white" onclick="switchTab('bazi')">八字排盘</button>
+                    <button id="tab-ziwei" class="flex-1 py-1 text-xs rounded text-[#848e9c] hover:text-white" onclick="switchTab('ziwei')">紫微斗数</button>
                 </div>
 
                 <div class="space-y-3">
@@ -128,14 +280,27 @@
                     </div>
                     <div>
                         <label class="text-[10px] text-[#848e9c] mb-1 block">出生时辰</label>
-                        <select class="trade-input w-full p-2 rounded text-xs outline-none">
-                            <option>吉时 (Random)</option>
-                            <option>子时 (23-01)</option>
-                            <option>午时 (11-13)</option>
+                        <select id="birth-hour" class="trade-input w-full p-2 rounded text-xs outline-none">
+                            <option value="random">吉时 (Random)</option>
+                            <option value="zi">子时 (23-01)</option>
+                            <option value="chou">丑时 (01-03)</option>
+                            <option value="yin">寅时 (03-05)</option>
+                            <option value="mao">卯时 (05-07)</option>
+                            <option value="chen">辰时 (07-09)</option>
+                            <option value="si">巳时 (09-11)</option>
+                            <option value="wu">午时 (11-13)</option>
+                            <option value="wei">未时 (13-15)</option>
+                            <option value="shen">申时 (15-17)</option>
+                            <option value="you">酉时 (17-19)</option>
+                            <option value="xu">戌时 (19-21)</option>
+                            <option value="hai">亥时 (21-23)</option>
                         </select>
                     </div>
                     <button onclick="runSimulation()" class="w-full py-2.5 rounded bg-[#f0b90b] text-black font-bold text-sm hover:opacity-90 transition">
-                        生成人生 K 线
+                        生成人生 K 线 (Space)
+                    </button>
+                    <button onclick="resetAll()" class="w-full py-1.5 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-white transition">
+                        重置所有设置
                     </button>
                 </div>
             </div>
@@ -153,10 +318,10 @@
 
             <div class="p-3 border-t border-[#2b3139]">
                 <div class="flex gap-2">
-                    <button class="flex-1 py-2 rounded bg-[#0ecb81] text-white text-xs font-bold">
+                    <button onclick="doLong()" class="flex-1 py-2 rounded bg-[#0ecb81] text-white text-xs font-bold hover:opacity-80 transition">
                         买入做多 (努力)
                     </button>
-                    <button class="flex-1 py-2 rounded bg-[#f6465d] text-white text-xs font-bold">
+                    <button onclick="doShort()" class="flex-1 py-2 rounded bg-[#f6465d] text-white text-xs font-bold hover:opacity-80 transition">
                         卖出做空 (躺平)
                     </button>
                 </div>
@@ -166,6 +331,11 @@
 
     <script>
         let chartInstance = null;
+        let currentDataset = null;
+        let currentPeriod = '1y';
+        let currentGranularity = 'year'; // 'day', 'month', 'year'
+        let activeIndicators = { ma: true, ema: false, boll: false };
+        let currentTab = 'bazi';
     
     // 核心配置：颜色变量
     const colors = {
@@ -196,39 +366,330 @@
         return result;
     }
 
+    // 计算 EMA (Exponential Moving Average)
+    function calculateEMA(dayCount, data) {
+        var result = [];
+        var multiplier = 2 / (dayCount + 1);
+        var ema = null;
+        
+        for (var i = 0; i < data.length; i++) {
+            var close = parseFloat(data[i][1]);
+            if (ema === null) {
+                ema = close;
+            } else {
+                ema = (close - ema) * multiplier + ema;
+            }
+            result.push(ema.toFixed(2));
+        }
+        return result;
+    }
+
+    // 计算布林带 (Bollinger Bands)
+    function calculateBOLL(dayCount, data) {
+        var ma = [];
+        var upper = [];
+        var lower = [];
+        
+        for (var i = 0; i < data.length; i++) {
+            if (i < dayCount) {
+                ma.push('-');
+                upper.push('-');
+                lower.push('-');
+                continue;
+            }
+            
+            var sum = 0;
+            for (var j = 0; j < dayCount; j++) {
+                sum += parseFloat(data[i - j][1]);
+            }
+            var average = sum / dayCount;
+            
+            var variance = 0;
+            for (var j = 0; j < dayCount; j++) {
+                variance += Math.pow(parseFloat(data[i - j][1]) - average, 2);
+            }
+            var stdDev = Math.sqrt(variance / dayCount);
+            
+            ma.push(average.toFixed(2));
+            upper.push((average + 2 * stdDev).toFixed(2));
+            lower.push((average - 2 * stdDev).toFixed(2));
+        }
+        
+        return { ma, upper, lower };
+    }
+
+    // 天干地支数据
+    const tianGan = ['庚', '辛', '壬', '癸', '甲', '乙', '丙', '丁', '戊', '己'];
+    const diZhi = ['申', '酉', '戌', '亥', '子', '丑', '寅', '卯', '辰', '巳', '午', '未'];
+    const wuXing = {
+        '甲': '木', '乙': '木', '丙': '火', '丁': '火', '戊': '土', '己': '土',
+        '庚': '金', '辛': '金', '壬': '水', '癸': '水',
+        '寅': '木', '卯': '木', '巳': '火', '午': '火', '辰': '土', '戌': '土', '丑': '土', '未': '土',
+        '申': '金', '酉': '金', '亥': '水', '子': '水'
+    };
+
+    // 更精确的八字格局判定
+    function analyzePattern(dob, birthHour) {
+        const dateObj = new Date(dob);
+        const year = dateObj.getFullYear();
+        const month = dateObj.getMonth(); // 0-11
+        const day = dateObj.getDate();
+        
+        // 计算年干支（简化版）
+        const yearGanIndex = (year - 4) % 10;
+        const yearZhiIndex = (year - 4) % 12;
+        const yearGan = tianGan[yearGanIndex];
+        const yearZhi = diZhi[yearZhiIndex];
+        
+        // 月令地支（简化对应）
+        const monthZhiMap = ['寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑'];
+        const monthZhi = monthZhiMap[month];
+        
+        // 日干（日主）- 根据日期简化计算
+        const dayGanIndex = (year + month * 30 + day) % 10;
+        const dayGan = tianGan[dayGanIndex];
+        
+        // 时辰地支
+        const hourZhiMap = {
+            'zi': '子', 'chou': '丑', 'yin': '寅', 'mao': '卯',
+            'chen': '辰', 'si': '巳', 'wu': '午', 'wei': '未',
+            'shen': '申', 'you': '酉', 'xu': '戌', 'hai': '亥',
+            'random': diZhi[Math.floor(Math.random() * 12)]
+        };
+        const hourZhi = hourZhiMap[birthHour] || hourZhiMap['random'];
+        
+        // 获取日主五行
+        const dayWuXing = wuXing[dayGan];
+        const monthWuXing = wuXing[monthZhi];
+        
+        // 计算五行强弱（简化版）
+        let wuXingCount = { '木': 0, '火': 0, '土': 0, '金': 0, '水': 0 };
+        wuXingCount[wuXing[yearGan]]++;
+        wuXingCount[wuXing[yearZhi]]++;
+        wuXingCount[monthWuXing]++;
+        wuXingCount[dayWuXing] += 2; // 日主权重更大
+        wuXingCount[wuXing[hourZhi]]++;
+        
+        // 判断身强身弱
+        const dayStrength = wuXingCount[dayWuXing];
+        const isStrong = dayStrength >= 3;
+        
+        // 根据月令和日主关系判定格局
+        let patternResult = "";
+        let godResult = "";
+        
+        // 格局判定逻辑
+        const seasonPatterns = {
+            '春': ['木'], '夏': ['火'], '秋': ['金'], '冬': ['水']
+        };
+        
+        // 确定季节
+        let season = '';
+        if (month >= 1 && month <= 3) season = '春';
+        else if (month >= 4 && month <= 6) season = '夏';
+        else if (month >= 7 && month <= 9) season = '秋';
+        else season = '冬';
+        
+        // 复杂的格局判定
+        if (monthWuXing === dayWuXing) {
+            if (isStrong) {
+                patternResult = "建禄格 (身强当令)";
+                // 身强需要泄耗
+                if (dayWuXing === '木') godResult = "喜火泄秀 / 喜金修剪";
+                else if (dayWuXing === '火') godResult = "喜土泄秀 / 喜水既济";
+                else if (dayWuXing === '土') godResult = "喜金泄秀 / 喜木疏土";
+                else if (dayWuXing === '金') godResult = "喜水淘洗 / 喜火锻炼";
+                else godResult = "喜木泄秀 / 喜土堤岸";
+            } else {
+                patternResult = "月劫格 (比肩当令)";
+                godResult = "喜印比扶身 / 忌财官";
+            }
+        } else if (isStrong) {
+            // 身强看月令十神
+            const patterns = [
+                { pattern: "食神格 (食神吐秀)", god: "喜食伤生财 / 忌印夺食" },
+                { pattern: "伤官格 (伤官配印)", god: "喜印制伤 / 喜财泄伤" },
+                { pattern: "正财格 (财旺生官)", god: "喜食伤生财 / 忌比劫夺财" },
+                { pattern: "偏财格 (财星通根)", god: "喜食伤 / 忌比劫" },
+                { pattern: "正官格 (官印相生)", god: "喜印护官 / 喜财滋官" },
+                { pattern: "七杀格 (食神制杀)", god: "喜食伤制杀 / 喜印化杀" },
+                { pattern: "正印格 (印绶护身)", god: "喜官生印 / 忌财坏印" },
+                { pattern: "偏印格 (枭神夺食)", god: "喜财制印 / 喜比劫" }
+            ];
+            const selected = patterns[Math.floor((year + month + day) % patterns.length)];
+            patternResult = selected.pattern;
+            godResult = selected.god;
+        } else {
+            // 身弱需要帮扶
+            const weakPatterns = [
+                { pattern: "从弱格 (顺势而为)", god: "喜财官食伤 / 忌印比" },
+                { pattern: "印绶格 (印星护身)", god: "喜印比 / 忌财星" },
+                { pattern: "比劫格 (兄弟帮身)", god: "喜比劫印 / 忌官杀财" }
+            ];
+            const selected = weakPatterns[Math.floor((year + day) % weakPatterns.length)];
+            patternResult = selected.pattern;
+            godResult = selected.god;
+        }
+        
+        // 添加八字信息
+        const baziInfo = `${yearGan}${yearZhi}年 ${monthZhi}月 ${dayGan}日 ${hourZhi}时`;
+        
+        return { 
+            pattern: patternResult, 
+            god: godResult,
+            bazi: baziInfo,
+            dayGan: dayGan,
+            strength: isStrong ? '身强' : '身弱'
+        };
+    }
+
     // 模拟数据生成器 - 增加 dob 参数
     function generateData(startYear, dob) {
         const data = []; // [Date, Open, Close, Low, High, Vol]
         const events = [];
         let score = 60;
         
-        // --- 【模拟格局与喜用神判断】 ---
-        const dateObj = new Date(dob);
-        // 获取月份 (0-11)
-        const month = dateObj.getMonth(); 
+        // --- 【精确的格局与喜用神判断】 ---
+        const birthHour = document.getElementById('birth-hour').value;
+        const analysis = analyzePattern(dob, birthHour);
         
-        let patternResult = "正官正印格 (平衡)"; 
-        let godResult = "喜食伤 / 喜比劫"; 
+        let patternResult = analysis.pattern;
+        let godResult = analysis.god;
+        let baziInfo = analysis.bazi;
+        let strengthInfo = analysis.strength;
+        // --- 【格局与喜用神判断结束】 ---
 
-        // 模拟根据季节划分格局和用神，让结果随日期变化
-        if (month >= 2 && month <= 4) { // 春季 (寅卯辰) - 木旺，身强需克泄
-            patternResult = "建禄/月劫格 (身旺)";
-            godResult = "喜金 / 喜土";
-        } else if (month >= 5 && month <= 7) { // 夏季 (巳午未) - 火旺，需水
-            patternResult = "伤官/七杀格 (强硬)";
-            godResult = "喜水 / 喜湿土";
-        } else if (month >= 8 && month <= 10) { // 秋季 (申酉戌) - 金旺，需火炼
-            patternResult = "正财偏财格 (旺财)";
-            godResult = "喜火 / 喜木";
-        } else { // 冬季 (亥子丑) - 水旺，需土制
-            patternResult = "印绶格 (智慧)";
-            godResult = "喜燥土 / 喜火";
-        }
-        // --- 【模拟格局与喜用神判断结束】 ---
-
-        // K线数据生成逻辑
-        for (let age = 0; age <= 80; age++) {
-            const year = startYear + age;
+        const dateObj = new Date(dob);
+        const monthNames = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+        
+        // 根据粒度生成不同的数据
+        if (currentGranularity === 'day') {
+            // 日K线 - 生成当前年份的365天
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            const daysInYear = 365;
+            
+            for (let dayIndex = 0; dayIndex < daysInYear; dayIndex++) {
+                const date = new Date(currentYear, 0, 1);
+                date.setDate(date.getDate() + dayIndex);
+                const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                
+                const dayTrend = Math.sin(dayIndex / 30) * 8 + Math.cos(dayIndex / 7) * 5;
+                
+                let open = score;
+                let change = (Math.random() * 10 - 5) + (dayTrend * 0.2);
+                let close = open + change;
+                
+                close = Math.max(20, Math.min(95, close));
+                
+                let low = Math.min(open, close) - Math.random() * 3;
+                let high = Math.max(open, close) + Math.random() * 3;
+                
+                low = Math.max(10, low);
+                high = Math.min(99, high);
+                
+                let vol = Math.floor(Math.random() * 500) + 300;
+                
+                // 每日事件
+                let eventType = "平稳";
+                const changePercent = ((close - open) / open) * 100;
+                
+                if (changePercent > 5) {
+                    const goodEvents = ["心情愉悦", "小有收获", "好运连连", "事事顺心"];
+                    eventType = goodEvents[Math.floor(Math.random() * goodEvents.length)];
+                } else if (changePercent < -5) {
+                    const badEvents = ["小有波折", "需要休息", "保持低调", "调整心态"];
+                    eventType = badEvents[Math.floor(Math.random() * badEvents.length)];
+                } else {
+                    const neutralEvents = ["平稳", "如常", "顺其自然"];
+                    eventType = neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
+                }
+                
+                // 特殊日期标记
+                if (date.getMonth() === 0 && date.getDate() === 1) eventType = "🎊 元旦";
+                else if (date.getMonth() === 1 && date.getDate() === 14) eventType = "💝 情人节";
+                else if (date.getMonth() === 4 && date.getDate() === 1) eventType = "🎉 劳动节";
+                else if (date.getMonth() === 9 && date.getDate() === 1) eventType = "🎃 国庆节";
+                else if (date.getMonth() === 11 && date.getDate() === 25) eventType = "🎄 圣诞节";
+                
+                data.push([
+                    dateStr,
+                    open.toFixed(1),
+                    close.toFixed(1),
+                    low.toFixed(1),
+                    high.toFixed(1),
+                    vol,
+                    eventType,
+                    dayIndex
+                ]);
+                
+                events.push({ year: dateStr, age: dayIndex, close: close.toFixed(1), type: eventType, isUp: close >= open });
+                score = close;
+            }
+            
+        } else if (currentGranularity === 'month') {
+            // 月K线 - 生成当前10年的120个月
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            const startYearForMonth = currentYear - 5; // 前5年到后5年
+            
+            for (let yearOffset = 0; yearOffset < 10; yearOffset++) {
+                for (let month = 0; month < 12; month++) {
+                    const displayYear = startYearForMonth + yearOffset;
+                    const dateStr = `${displayYear}-${monthNames[month]}`;
+                    const totalMonths = yearOffset * 12 + month;
+                    
+                    const monthTrend = Math.sin(totalMonths / 12) * 10;
+                    
+                    let open = score;
+                    let change = (Math.random() * 12 - 6) + (monthTrend * 0.25);
+                    let close = open + change;
+                    
+                    close = Math.max(20, Math.min(95, close));
+                    
+                    let low = Math.min(open, close) - Math.random() * 4;
+                    let high = Math.max(open, close) + Math.random() * 4;
+                    
+                    low = Math.max(10, low);
+                    high = Math.min(99, high);
+                    
+                    let vol = Math.floor(Math.random() * 800) + 400;
+                    
+                    // 每月事件
+                    let eventType = "平稳";
+                    const changePercent = ((close - open) / open) * 100;
+                    
+                    if (changePercent > 6) {
+                        const goodEvents = ["月度进步", "收获颇丰", "运势上扬", "诸事顺利"];
+                        eventType = goodEvents[Math.floor(Math.random() * goodEvents.length)];
+                    } else if (changePercent < -6) {
+                        const badEvents = ["略有起伏", "需要调整", "稳中求进", "静待转机"];
+                        eventType = badEvents[Math.floor(Math.random() * badEvents.length)];
+                    } else {
+                        const neutralEvents = ["平稳", "稳定发展", "按部就班"];
+                        eventType = neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
+                    }
+                    
+                    data.push([
+                        dateStr,
+                        open.toFixed(1),
+                        close.toFixed(1),
+                        low.toFixed(1),
+                        high.toFixed(1),
+                        vol,
+                        eventType,
+                        totalMonths
+                    ]);
+                    
+                    events.push({ year: dateStr, age: totalMonths, close: close.toFixed(1), type: eventType, isUp: close >= open });
+                    score = close;
+                }
+            }
+            
+        } else {
+            // 年K线 - 原有的80年数据
+            for (let age = 0; age <= 80; age++) {
+                const year = startYear + age;
             const trend = Math.sin(age / 7) * 12;
             
             let open = score;
@@ -246,9 +707,36 @@
             let vol = Math.floor(Math.random() * 1000) + 500;
             if(age > 20 && age < 50) vol += 500; 
 
+            // 更丰富的事件类型判定
             let eventType = "平稳";
-            if (close > open && (close - open) > 5) eventType = "财星高照";
-            else if (close < open && (open - close) > 5) eventType = "七杀克身";
+            const changePercent = ((close - open) / open) * 100;
+            
+            if (changePercent > 8) {
+                const goodEvents = ["财星高照", "大吉大利", "贵人相助", "事业高升", "桃花运旺"];
+                eventType = goodEvents[Math.floor(Math.random() * goodEvents.length)];
+            } else if (changePercent > 3) {
+                const normalGoodEvents = ["小有收获", "稳步上升", "运势渐好", "心想事成"];
+                eventType = normalGoodEvents[Math.floor(Math.random() * normalGoodEvents.length)];
+            } else if (changePercent < -8) {
+                const badEvents = ["七杀克身", "破财之灾", "小人作祟", "事业受阻", "健康预警"];
+                eventType = badEvents[Math.floor(Math.random() * badEvents.length)];
+            } else if (changePercent < -3) {
+                const normalBadEvents = ["略有波折", "需要谨慎", "低调为宜", "蓄势待发"];
+                eventType = normalBadEvents[Math.floor(Math.random() * normalBadEvents.length)];
+            } else {
+                const neutralEvents = ["平稳", "中规中矩", "顺其自然", "静候佳音"];
+                eventType = neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
+            }
+            
+            // 特殊年龄段的事件
+            if (age === 18) eventType = "🎓 成人礼";
+            else if (age === 22) eventType = "🎓 大学毕业";
+            else if (age >= 25 && age <= 35 && Math.random() > 0.8) eventType = "💼 职场晋升";
+            else if (age >= 28 && age <= 32 && Math.random() > 0.85) eventType = "💑 良缘";
+            else if (age === 30) eventType = "🎂 而立之年";
+            else if (age === 40) eventType = "💪 不惑之年";
+            else if (age === 50) eventType = "🌟 知天命";
+            else if (age === 60) eventType = "🎊 花甲之年";
 
             data.push([
                 `${year}`,   
@@ -264,12 +752,22 @@
             events.push({ year, age, close: close.toFixed(1), type: eventType, isUp: close >= open });
             
             score = close;
+            }
         }
+        
         // 返回包含格局信息的对象
-        return { rawData: data, events: events, pattern: patternResult, god: godResult };
+        return { 
+            rawData: data, 
+            events: events, 
+            pattern: patternResult, 
+            god: godResult,
+            bazi: baziInfo,
+            strength: strengthInfo
+        };
     }
 
     function initChart(dataset) {
+        currentDataset = dataset;
         const dom = document.getElementById('kline-chart');
         if(chartInstance) chartInstance.dispose();
         chartInstance = echarts.init(dom);
@@ -282,17 +780,36 @@
         // 更新顶部 Header 数据
         const allHigh = Math.max(...rawData.map(i => parseFloat(i[4])));
         const allLow = Math.min(...rawData.map(i => parseFloat(i[3])));
-        document.getElementById('current-score').innerText = rawData[rawData.length - 1][2]; // 显示最新收盘分
+        const currentClose = parseFloat(rawData[rawData.length - 1][2]);
+        const firstOpen = parseFloat(rawData[0][1]);
+        const totalChange = ((currentClose - firstOpen) / firstOpen * 100).toFixed(2);
+        
+        document.getElementById('current-score').innerText = currentClose.toFixed(2);
+        document.getElementById('current-score').style.color = currentClose >= firstOpen ? colors.up : colors.down;
         document.getElementById('high-score').innerText = allHigh.toFixed(2);
         document.getElementById('low-score').innerText = allLow.toFixed(2);
-        document.getElementById('vol-score').innerText = "∞"; 
+        
+        // 计算平均能量
+        const avgVol = Math.floor(volumes.reduce((sum, v) => sum + v[1], 0) / volumes.length);
+        document.getElementById('vol-score').innerText = avgVol.toLocaleString(); 
+
+        // 根据当前激活的指标构建 legend 数据
+        const legendData = ['K线'];
+        if (activeIndicators.ma) {
+            legendData.push('MA7', 'MA25', 'MA99');
+        }
+        if (activeIndicators.ema) {
+            legendData.push('EMA7', 'EMA25', 'EMA99');
+        }
+        if (activeIndicators.boll) {
+            legendData.push('BOLL-MID', 'BOLL-UPPER', 'BOLL-LOWER');
+        }
 
         const option = {
-            // ... (Echarts 配置保持不变)
             backgroundColor: colors.bg,
             animation: true,
             legend: {
-                data: ['K线', 'MA7', 'MA25', 'MA99'],
+                data: legendData,
                 top: 10,
                 left: 20,
                 textStyle: { color: colors.text, fontSize: 10 },
@@ -374,7 +891,7 @@
                 }
             ],
             dataZoom: [
-                { type: 'inside', xAxisIndex: [0, 1], start: 20, end: 60 },
+                { type: 'inside', xAxisIndex: [0, 1], start: currentPeriod === '1y' ? 70 : 20, end: currentPeriod === '1y' ? 100 : 60 },
                 { type: 'slider', xAxisIndex: [0, 1], bottom: 5, height: 15, borderColor: colors.grid, fillerColor: 'rgba(255,255,255,0.1)', handleStyle: {color: colors.text}, textStyle: {color: colors.text} }
             ],
             series: [
@@ -388,7 +905,13 @@
                         borderColor: colors.up,  
                         borderColor0: colors.down 
                     }
-                },
+                }
+            ]
+        };
+
+        // 添加 MA 指标
+        if (activeIndicators.ma) {
+            option.series.push(
                 {
                     name: 'MA7',
                     type: 'line',
@@ -412,22 +935,85 @@
                     smooth: true,
                     showSymbol: false,
                     lineStyle: { width: 1, color: colors.ma99 }
+                }
+            );
+        }
+
+        // 添加 EMA 指标
+        if (activeIndicators.ema) {
+            option.series.push(
+                {
+                    name: 'EMA7',
+                    type: 'line',
+                    data: calculateEMA(7, data),
+                    smooth: true,
+                    showSymbol: false,
+                    lineStyle: { width: 1.5, color: '#ffaa00', type: 'dashed' }
                 },
                 {
-                    name: '能量',
-                    type: 'bar',
-                    xAxisIndex: 1,
-                    yAxisIndex: 1,
-                    data: volumes,
-                    itemStyle: {
-                        color: function(params) {
-                            const kData = data[params.dataIndex];
-                            return kData[1] > kData[0] ? colors.up : colors.down;
-                        }
-                    }
+                    name: 'EMA25',
+                    type: 'line',
+                    data: calculateEMA(25, data),
+                    smooth: true,
+                    showSymbol: false,
+                    lineStyle: { width: 1.5, color: '#ff6b9d', type: 'dashed' }
+                },
+                {
+                    name: 'EMA99',
+                    type: 'line',
+                    data: calculateEMA(99, data),
+                    smooth: true,
+                    showSymbol: false,
+                    lineStyle: { width: 1.5, color: '#00d4ff', type: 'dashed' }
                 }
-            ]
-        };
+            );
+        }
+
+        // 添加 BOLL 指标
+        if (activeIndicators.boll) {
+            const boll = calculateBOLL(20, data);
+            option.series.push(
+                {
+                    name: 'BOLL-MID',
+                    type: 'line',
+                    data: boll.ma,
+                    smooth: true,
+                    showSymbol: false,
+                    lineStyle: { width: 1, color: '#7cb342' }
+                },
+                {
+                    name: 'BOLL-UPPER',
+                    type: 'line',
+                    data: boll.upper,
+                    smooth: true,
+                    showSymbol: false,
+                    lineStyle: { width: 1, color: '#7cb342', opacity: 0.5 }
+                },
+                {
+                    name: 'BOLL-LOWER',
+                    type: 'line',
+                    data: boll.lower,
+                    smooth: true,
+                    showSymbol: false,
+                    lineStyle: { width: 1, color: '#7cb342', opacity: 0.5 }
+                }
+            );
+        }
+
+        // 添加成交量
+        option.series.push({
+            name: '能量',
+            type: 'bar',
+            xAxisIndex: 1,
+            yAxisIndex: 1,
+            data: volumes,
+            itemStyle: {
+                color: function(params) {
+                    const kData = data[params.dataIndex];
+                    return kData[1] > kData[0] ? colors.up : colors.down;
+                }
+            }
+        });
         chartInstance.setOption(option);
         
         window.addEventListener('resize', () => chartInstance.resize());
@@ -437,23 +1023,88 @@
         const container = document.getElementById('order-book');
         container.innerHTML = ''; 
         
-        events.slice().reverse().forEach(evt => {
+        events.slice().reverse().forEach((evt, idx) => {
             const el = document.createElement('div');
-            el.className = 'order-book-item px-4';
+            el.className = 'order-book-item px-4 fade-in-up';
+            el.style.animationDelay = `${idx * 0.01}s`;
             const colorClass = evt.isUp ? 'text-[#0ecb81]' : 'text-[#f6465d]';
             
             el.innerHTML = `
-                <span class="text-[#848e9c] w-1/3 text-left">${evt.year} <span class="scale-75 inline-block opacity-50">(${evt.age})</span></span>
+                <span class="text-[#848e9c] w-1/3 text-left">${evt.year} <span class="scale-75 inline-block opacity-50">(${evt.age}岁)</span></span>
                 <span class="${colorClass} w-1/3 text-right font-mono">${evt.close}</span>
-                <span class="text-white w-1/3 text-right">${evt.type}</span>
+                <span class="text-white w-1/3 text-right text-[11px]">${evt.type}</span>
             `;
-            el.onclick = () => { /* Add chart zoom logic */ };
+            el.title = `点击查看 ${evt.year} 年 (${evt.age}岁) 详情`;
+            el.onclick = () => { 
+                jumpToYear(evt.age);
+            };
             container.appendChild(el);
+        });
+    }
+
+    // 跳转到指定年龄
+    function jumpToYear(age) {
+        if (!chartInstance || !currentDataset) return;
+        
+        const totalYears = currentDataset.rawData.length;
+        const targetIndex = age;
+        
+        // 计算显示范围（前后各5-10年，取决于周期）
+        const rangeSize = currentPeriod === '1y' ? 5 : 15;
+        let start = Math.max(0, targetIndex - rangeSize);
+        let end = Math.min(totalYears, targetIndex + rangeSize);
+        
+        chartInstance.dispatchAction({
+            type: 'dataZoom',
+            startValue: start,
+            endValue: end
+        });
+
+        // 延迟显示tooltip，确保缩放完成
+        setTimeout(() => {
+            chartInstance.dispatchAction({
+                type: 'showTip',
+                seriesIndex: 0,
+                dataIndex: targetIndex
+            });
+        }, 300);
+        
+        // 高亮订单簿中的项
+        highlightOrderBookItem(age);
+    }
+
+    // 高亮订单簿项目
+    function highlightOrderBookItem(age) {
+        document.querySelectorAll('.order-book-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // 查找并高亮对应项
+        const items = document.querySelectorAll('.order-book-item');
+        const events = currentDataset.events.slice().reverse();
+        events.forEach((evt, idx) => {
+            if (evt.age === age && items[idx]) {
+                items[idx].classList.add('active');
+                items[idx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         });
     }
 
     function runSimulation() {
         const loader = document.getElementById('chart-loader');
+        const loadingTips = [
+            '📊 正在分析八字命盘...',
+            '🔮 计算五行强弱中...',
+            '✨ 推演大运流年...',
+            '🌟 生成人生轨迹...',
+            '💫 连接命运服务器...',
+            '🎯 预测未来走势...',
+            '⚡ 加载运势数据...',
+            '🎨 绘制命运曲线...'
+        ];
+        
+        const randomTip = loadingTips[Math.floor(Math.random() * loadingTips.length)];
+        document.getElementById('loading-tips').innerText = randomTip;
         
         loader.classList.remove('hidden');
         
@@ -470,11 +1121,224 @@
             loader.classList.add('hidden');
 
             // --- 【刷新 UI 关键代码】 ---
-            document.getElementById('pattern-result').innerText = dataset.pattern;
-            document.getElementById('god-result').innerText = dataset.god;
+            if (currentTab === 'bazi') {
+                document.getElementById('bazi-result').innerText = dataset.bazi || '未排盘';
+                document.getElementById('strength-result').innerText = dataset.strength || '-';
+                document.getElementById('pattern-result').innerText = dataset.pattern;
+                document.getElementById('god-result').innerText = dataset.god;
+                
+                // 根据身强身弱设置颜色
+                if (dataset.strength === '身强') {
+                    document.getElementById('strength-result').style.color = colors.up;
+                } else if (dataset.strength === '身弱') {
+                    document.getElementById('strength-result').style.color = colors.down;
+                }
+            }
             // --- 【刷新 UI 关键代码】 ---
 
-        }, 800); 
+        }, 1000); 
+    }
+
+    // 切换时间粒度
+    function switchGranularity(granularity) {
+        currentGranularity = granularity;
+        
+        // 更新按钮样式
+        document.getElementById('granularity-day').classList.remove('text-[#f0b90b]');
+        document.getElementById('granularity-month').classList.remove('text-[#f0b90b]');
+        document.getElementById('granularity-year').classList.remove('text-[#f0b90b]');
+        document.getElementById(`granularity-${granularity}`).classList.add('text-[#f0b90b]');
+        
+        // 重新生成数据
+        runSimulation();
+    }
+
+    // 切换时间周期
+    function switchPeriod(period) {
+        currentPeriod = period;
+        
+        // 更新按钮样式
+        document.getElementById('period-1y').classList.remove('text-[#f0b90b]');
+        document.getElementById('period-10y').classList.remove('text-[#f0b90b]');
+        document.getElementById(`period-${period}`).classList.add('text-[#f0b90b]');
+        
+        // 重新渲染图表
+        if (currentDataset) {
+            initChart(currentDataset);
+        }
+    }
+
+    // 切换指标
+    function toggleIndicator(indicator) {
+        activeIndicators[indicator] = !activeIndicators[indicator];
+        
+        // 更新按钮样式
+        const indicatorBtn = document.getElementById(`indicator-${indicator}`);
+        if (activeIndicators[indicator]) {
+            indicatorBtn.classList.remove('text-[#848e9c]');
+            indicatorBtn.classList.add(indicator === 'ma' ? 'text-[#f0b90b]' : indicator === 'ema' ? 'text-[#d897cd]' : 'text-[#6885ce]');
+        } else {
+            indicatorBtn.classList.add('text-[#848e9c]');
+            indicatorBtn.classList.remove('text-[#f0b90b]', 'text-[#d897cd]', 'text-[#6885ce]');
+        }
+        
+        // 重新渲染图表
+        if (currentDataset) {
+            initChart(currentDataset);
+        }
+    }
+
+    // 切换排盘类型
+    function switchTab(tab) {
+        currentTab = tab;
+        
+        // 更新按钮样式
+        document.getElementById('tab-bazi').classList.remove('bg-[#2b3139]', 'text-white');
+        document.getElementById('tab-ziwei').classList.remove('bg-[#2b3139]', 'text-white');
+        document.getElementById('tab-bazi').classList.add('text-[#848e9c]');
+        document.getElementById('tab-ziwei').classList.add('text-[#848e9c]');
+        
+        document.getElementById(`tab-${tab}`).classList.remove('text-[#848e9c]');
+        document.getElementById(`tab-${tab}`).classList.add('bg-[#2b3139]', 'text-white');
+        
+        // 根据不同类型显示不同的排盘结果
+        const baziEl = document.getElementById('bazi-result');
+        const strengthEl = document.getElementById('strength-result');
+        const patternEl = document.getElementById('pattern-result');
+        const godEl = document.getElementById('god-result');
+        
+        if (tab === 'ziwei') {
+            baziEl.innerText = '紫微斗数命盘';
+            strengthEl.innerText = '庙旺';
+            strengthEl.style.color = colors.up;
+            patternEl.innerText = '紫微在午 (帝王坐命)';
+            godEl.innerText = '天府星系 / 化权';
+        } else if (currentDataset) {
+            baziEl.innerText = currentDataset.bazi || '未排盘';
+            strengthEl.innerText = currentDataset.strength || '-';
+            if (currentDataset.strength === '身强') {
+                strengthEl.style.color = colors.up;
+            } else if (currentDataset.strength === '身弱') {
+                strengthEl.style.color = colors.down;
+            }
+            patternEl.innerText = currentDataset.pattern;
+            godEl.innerText = currentDataset.god;
+        }
+    }
+
+    // 自定义提示框
+    function showCustomAlert(message, type = 'info') {
+        // 移除已存在的提示框
+        const existing = document.querySelectorAll('.custom-alert, .custom-alert-overlay');
+        existing.forEach(el => el.remove());
+        
+        // 创建遮罩层
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-alert-overlay';
+        
+        // 创建提示框
+        const alertBox = document.createElement('div');
+        alertBox.className = 'custom-alert';
+        
+        const icon = type === 'long' ? '🚀' : type === 'short' ? '😌' : '💡';
+        const titleColor = type === 'long' ? colors.up : type === 'short' ? colors.down : '#f0b90b';
+        
+        alertBox.innerHTML = `
+            <div style="font-size: 48px; margin-bottom: 15px;">${icon}</div>
+            <div style="color: ${titleColor}; font-size: 18px; font-weight: bold; margin-bottom: 10px;">
+                ${type === 'long' ? '做多模式' : type === 'short' ? '躺平模式' : '提示'}
+            </div>
+            <div style="color: #eaecef; font-size: 14px; line-height: 1.6; white-space: pre-line;">
+                ${message}
+            </div>
+            <button onclick="closeCustomAlert()" style="
+                margin-top: 20px;
+                padding: 8px 30px;
+                background: ${titleColor};
+                color: ${type === 'long' || type === 'short' ? 'white' : 'black'};
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: bold;
+                transition: opacity 0.2s;
+            " onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                确定
+            </button>
+        `;
+        
+        document.body.appendChild(overlay);
+        document.body.appendChild(alertBox);
+        
+        // 点击遮罩层也能关闭
+        overlay.onclick = closeCustomAlert;
+    }
+
+    function closeCustomAlert() {
+        const elements = document.querySelectorAll('.custom-alert, .custom-alert-overlay');
+        elements.forEach(el => {
+            el.style.animation = 'fadeOut 0.2s ease-out';
+            setTimeout(() => el.remove(), 200);
+        });
+    }
+
+    // 买入做多（努力）
+    function doLong() {
+        if (!currentDataset) {
+            showCustomAlert('请先生成人生K线！', 'info');
+            return;
+        }
+        
+        const messages = [
+            '已开启做多模式！\n未来5年运势预计上涨 +15%\n\n建议：加强学习和工作投入',
+            '努力加持中...\n正能量满满，把握机会\n\n提示：天时地利人和，勇往直前',
+            '财运、事业运将得到提升\n持续努力必有回报\n\n建议：制定明确目标并执行',
+            '趋势向好，未来可期\n贵人运加持中...\n\n提示：主动出击，创造机会',
+            '运势强劲，适合冲刺\n学习运旺，易有突破\n\n建议：投资自己，提升技能'
+        ];
+        
+        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+        showCustomAlert(randomMsg, 'long');
+        
+        // 模拟增加当前运势分数
+        const currentScore = parseFloat(document.getElementById('current-score').innerText);
+        const newScore = Math.min(95, currentScore + Math.random() * 3 + 1);
+        document.getElementById('current-score').innerText = newScore.toFixed(2);
+        document.getElementById('current-score').style.color = colors.up;
+        
+        // 添加脉冲动画
+        const scoreEl = document.getElementById('current-score');
+        scoreEl.classList.add('pulse');
+        setTimeout(() => scoreEl.classList.remove('pulse'), 2000);
+    }
+
+    // 卖出做空（躺平）
+    function doShort() {
+        if (!currentDataset) {
+            showCustomAlert('请先生成人生K线！', 'info');
+            return;
+        }
+        
+        const messages = [
+            '已开启躺平模式\n适当休息也是一种智慧\n\n提示：给自己一段放空的时间',
+            '放松中...\n顺其自然，静待花开\n\n建议：冥想、旅行或培养兴趣',
+            '佛系生活启动\n平淡也是一种幸福\n\n提示：享受当下的宁静',
+            '慢节奏模式\n有时候退一步海阔天空\n\n建议：整理思绪，蓄势待发',
+            '休整期开启\n为下一次冲刺积蓄能量\n\n提示：张弛有度才能长久'
+        ];
+        
+        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+        showCustomAlert(randomMsg, 'short');
+        
+        // 模拟降低当前运势分数
+        const currentScore = parseFloat(document.getElementById('current-score').innerText);
+        const newScore = Math.max(20, currentScore - Math.random() * 2 - 0.5);
+        document.getElementById('current-score').innerText = newScore.toFixed(2);
+        document.getElementById('current-score').style.color = colors.down;
+        
+        // 添加脉冲动画
+        const scoreEl = document.getElementById('current-score');
+        scoreEl.classList.add('pulse');
+        setTimeout(() => scoreEl.classList.remove('pulse'), 2000);
     }
 
     // 初始化时，需要有一个地方来放置格局和喜用神结果
@@ -486,8 +1350,16 @@
         // 在顶部行情栏下方添加一个占位符，以便显示格局信息
         const header = document.querySelector('header');
         const infoBar = document.createElement('div');
-        infoBar.className = 'flex gap-8 px-4 py-2 text-xs border-b border-[#2b3139] bg-[#1e2329] flex-shrink-0';
+        infoBar.className = 'flex gap-6 px-4 py-2 text-xs border-b border-[#2b3139] bg-[#1e2329] flex-shrink-0';
         infoBar.innerHTML = `
+            <div>
+                <div class="text-[#848e9c]">八字命盘</div>
+                <div class="text-[#f0b90b] font-medium text-[11px]" id="bazi-result">未排盘</div>
+            </div>
+            <div>
+                <div class="text-[#848e9c]">日主</div>
+                <div class="text-white font-medium" id="strength-result">-</div>
+            </div>
             <div>
                 <div class="text-[#848e9c]">格局判定</div>
                 <div class="text-white font-medium" id="pattern-result">未排盘</div>
@@ -496,11 +1368,223 @@
                 <div class="text-[#848e9c]">喜用神</div>
                 <div class="text-[#0ecb81] font-medium" id="god-result">请点击生成</div>
             </div>
+            <div style="margin-left: auto;">
+                <div class="text-[#848e9c]">快捷键</div>
+                <div class="text-[#848e9c] text-[10px]">空格:生成 | M:MA | E:EMA | B:BOLL | L:做多 | S:躺平 | H:帮助</div>
+            </div>
+            <div>
+                <button onclick="toggleHelp()" class="px-3 py-1 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-[#f0b90b] transition" title="帮助信息 (H键)">
+                    ❓ 帮助
+                </button>
+            </div>
         `;
         header.parentNode.insertBefore(infoBar, header.nextSibling);
 
         runSimulation();
+        
+        // 添加键盘快捷键
+        setupKeyboardShortcuts();
     });
+
+    // 缩放控制函数
+    function zoomIn() {
+        if (!chartInstance) return;
+        chartInstance.dispatchAction({ type: 'dataZoom', dataZoomIndex: 0, type: 'dataZoom', end: Math.max(chartInstance.getOption().dataZoom[0].end - 10, 10) });
+    }
+
+    function zoomOut() {
+        if (!chartInstance) return;
+        chartInstance.dispatchAction({ type: 'dataZoom', dataZoomIndex: 0, type: 'dataZoom', end: Math.min(chartInstance.getOption().dataZoom[0].end + 10, 100) });
+    }
+
+    function resetZoom() {
+        if (!chartInstance) return;
+        chartInstance.dispatchAction({
+            type: 'dataZoom',
+            start: currentPeriod === '1y' ? 70 : 20,
+            end: currentPeriod === '1y' ? 100 : 60
+        });
+    }
+
+    // 帮助面板
+    function toggleHelp() {
+        const existing = document.querySelector('.help-panel');
+        if (existing) {
+            closeCustomAlert();
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-alert-overlay';
+        overlay.onclick = closeCustomAlert;
+
+        const helpPanel = document.createElement('div');
+        helpPanel.className = 'help-panel';
+        helpPanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #f0b90b; font-size: 20px; font-weight: bold;">📖 使用指南</h2>
+                <button onclick="closeCustomAlert()" style="background: none; border: none; color: #848e9c; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+
+            <div class="help-section">
+                <h3>🎯 功能介绍</h3>
+                <ul>
+                    <li>以股票K线的形式展示人生运势走向</li>
+                    <li>基于出生日期模拟八字排盘和命理分析</li>
+                    <li>支持多种技术指标辅助分析人生轨迹</li>
+                    <li>通过"做多"或"躺平"模拟不同人生态度</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>⌨️ 键盘快捷键</h3>
+                <ul>
+                    <li><b>空格</b> - 重新生成人生K线</li>
+                    <li><b>D</b> - 切换到日K粒度 (查看每天)</li>
+                    <li><b>K</b> - 切换到月K粒度 (查看每月)</li>
+                    <li><b>Y</b> - 切换到年K粒度 (查看每年)</li>
+                    <li><b>A</b> - 切换MA均线指标</li>
+                    <li><b>E</b> - 切换EMA指数移动平均</li>
+                    <li><b>B</b> - 切换BOLL布林带</li>
+                    <li><b>L</b> - 执行"做多"操作</li>
+                    <li><b>S</b> - 执行"躺平"操作</li>
+                    <li><b>1</b> - 切换到1年周期视图</li>
+                    <li><b>2</b> - 切换到10年周期视图</li>
+                    <li><b>Z</b> - 重置图表缩放</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>📊 图表操作</h3>
+                <ul>
+                    <li>鼠标滚轮 - 缩放图表</li>
+                    <li>鼠标拖拽 - 平移图表</li>
+                    <li>悬停K线 - 查看详细信息</li>
+                    <li>点击右侧年份 - 快速跳转到对应时期</li>
+                    <li>拖动底部滑块 - 精确调整显示区间</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>🔮 术语解释</h3>
+                <ul>
+                    <li><b>运势分数</b> - 当前人生状态评分(10-99)</li>
+                    <li><b>八字命盘</b> - 根据出生年月日时生成的天干地支组合</li>
+                    <li><b>日主</b> - 八字中代表自己的天干，身强身弱反映命局强弱</li>
+                    <li><b>格局判定</b> - 根据八字五行生克关系判定的命理格局</li>
+                    <li><b>喜用神</b> - 对命局有利的五行属性，调候补益之神</li>
+                    <li><b>精气神</b> - 生命活力指标（成交量）</li>
+                    <li><b>做多/努力</b> - 积极奋进的人生态度</li>
+                    <li><b>做空/躺平</b> - 放松休整的生活方式</li>
+                </ul>
+            </div>
+
+            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #2b3139; text-align: center; color: #848e9c; font-size: 12px;">
+                💡 提示：本应用仅供娱乐，不构成任何人生建议
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(helpPanel);
+    }
+
+    // 重置所有设置
+    function resetAll() {
+        // 重置日期和时辰
+        document.getElementById('dob').value = '1998-08-08';
+        document.getElementById('birth-hour').value = 'random';
+        
+        // 重置粒度为年K
+        currentGranularity = 'year';
+        document.getElementById('granularity-day').classList.remove('text-[#f0b90b]');
+        document.getElementById('granularity-month').classList.remove('text-[#f0b90b]');
+        document.getElementById('granularity-year').classList.add('text-[#f0b90b]');
+        
+        // 重置周期为1年
+        currentPeriod = '1y';
+        document.getElementById('period-1y').classList.add('text-[#f0b90b]');
+        document.getElementById('period-10y').classList.remove('text-[#f0b90b]');
+        
+        // 重置指标，只保留MA
+        activeIndicators = { ma: true, ema: false, boll: false };
+        document.getElementById('indicator-ma').classList.add('text-[#f0b90b]');
+        document.getElementById('indicator-ma').classList.remove('text-[#848e9c]');
+        document.getElementById('indicator-ema').classList.add('text-[#848e9c]');
+        document.getElementById('indicator-ema').classList.remove('text-[#d897cd]');
+        document.getElementById('indicator-boll').classList.add('text-[#848e9c]');
+        document.getElementById('indicator-boll').classList.remove('text-[#6885ce]');
+        
+        // 重置为八字排盘
+        currentTab = 'bazi';
+        document.getElementById('tab-bazi').classList.add('bg-[#2b3139]', 'text-white');
+        document.getElementById('tab-bazi').classList.remove('text-[#848e9c]');
+        document.getElementById('tab-ziwei').classList.remove('bg-[#2b3139]', 'text-white');
+        document.getElementById('tab-ziwei').classList.add('text-[#848e9c]');
+        
+        // 重新生成
+        runSimulation();
+    }
+
+    // 键盘快捷键
+    function setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // 如果在输入框中，不触发快捷键
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            
+            switch(e.key.toLowerCase()) {
+                case ' ': // 空格键 - 生成K线
+                    e.preventDefault();
+                    runSimulation();
+                    break;
+                case 'd': // D键 - 日K粒度
+                    switchGranularity('day');
+                    break;
+                case 'k': // K键 - 月K粒度 (M被MA占用)
+                    switchGranularity('month');
+                    break;
+                case 'y': // Y键 - 年K粒度
+                    switchGranularity('year');
+                    break;
+                case 'a': // A键 - 切换MA指标 (改用A代替M)
+                    toggleIndicator('ma');
+                    break;
+                case 'e': // E键 - 切换EMA指标
+                    toggleIndicator('ema');
+                    break;
+                case 'b': // B键 - 切换BOLL指标
+                    toggleIndicator('boll');
+                    break;
+                case 'l': // L键 - 做多
+                    doLong();
+                    break;
+                case 's': // S键 - 做空
+                    doShort();
+                    break;
+                case '1': // 1键 - 1年周期
+                    switchPeriod('1y');
+                    break;
+                case '2': // 2键 - 10年周期
+                    switchPeriod('10y');
+                    break;
+                case 'z': // Z键 - 重置缩放
+                    if (chartInstance) {
+                        chartInstance.dispatchAction({
+                            type: 'dataZoom',
+                            start: currentPeriod === '1y' ? 70 : 20,
+                            end: currentPeriod === '1y' ? 100 : 60
+                        });
+                    }
+                    break;
+                case 'h': // H键 - 帮助
+                case '?': // ?键 - 帮助
+                    toggleHelp();
+                    break;
+                case 'r': // R键 - 重置
+                    resetAll();
+                    break;
+            }
+        });
+    }
 
     </script>
 </body>
