@@ -254,15 +254,27 @@
 
         /* 移动端底部面板 */
         #bottom-panel {
-            transition: transform 0.3s ease-out;
+            transition: max-height 0.3s ease-out;
             position: relative;
             z-index: 10;
+            max-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
         #bottom-panel.collapsed {
-            transform: translateY(calc(100% - 60px));
+            max-height: 44px;
         }
         #bottom-panel.collapsed #bottom-panel-content {
-            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+        }
+        #bottom-panel-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            min-height: 0;
+            transition: opacity 0.2s ease-out, visibility 0.2s ease-out;
         }
         
         /* 确保图表区域能正确占据空间 */
@@ -386,7 +398,7 @@
         </div>
 
         <!-- 订单簿 -->
-        <div id="panel-orderbook" class="max-h-48 overflow-y-auto hidden">
+        <div id="panel-orderbook" class="hidden">
             <div id="order-book-header" class="px-3 py-2 text-[10px] text-[#848e9c] flex justify-between border-b border-[#2b3139] sticky top-0 bg-[#161a1e]">
                 <span>时间</span>
                 <span>价格</span>
@@ -396,7 +408,7 @@
         </div>
 
         <!-- 最近成交 -->
-        <div id="panel-trades" class="max-h-48 overflow-y-auto hidden">
+        <div id="panel-trades" class="hidden">
             <div class="px-3 py-2 text-[10px] text-[#848e9c] flex justify-between border-b border-[#2b3139] sticky top-0 bg-[#161a1e]">
                 <span>时间</span>
                 <span>价格</span>
@@ -484,7 +496,7 @@
         let currentTradeTab = 'orderbook'; // 当前交易面板标签
         let recentTrades = []; // 最近成交记录
         let tickerData = []; // 行情数据
-        let bottomPanelExpanded = true; // 底部面板展开状态
+        let bottomPanelExpanded = false; // 底部面板展开状态，默认折叠以最大化K线显示
     
     // 核心配置：颜色变量
     const colors = {
