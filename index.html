@@ -381,28 +381,64 @@
                 </div>
 
                 <div class="space-y-3">
-                    <div>
-                        <label class="text-[10px] text-[#848e9c] mb-1 block">出生日期</label>
-                        <input type="date" id="dob" value="1998-08-08" class="trade-input w-full p-2 rounded text-xs outline-none">
+                    <!-- 输入模式切换 -->
+                    <div class="flex gap-2">
+                        <button id="mode-date" class="flex-1 py-1 text-xs rounded bg-[#f0b90b] text-black font-bold" onclick="switchInputMode('date')">日期模式</button>
+                        <button id="mode-bazi" class="flex-1 py-1 text-xs rounded bg-[#2b3139] text-[#848e9c] hover:text-white" onclick="switchInputMode('bazi')">八字模式</button>
                     </div>
-                    <div>
-                        <label class="text-[10px] text-[#848e9c] mb-1 block">出生时辰</label>
-                        <select id="birth-hour" class="trade-input w-full p-2 rounded text-xs outline-none">
-                            <option value="random">吉时 (Random)</option>
-                            <option value="zi">子时 (23-01)</option>
-                            <option value="chou">丑时 (01-03)</option>
-                            <option value="yin">寅时 (03-05)</option>
-                            <option value="mao">卯时 (05-07)</option>
-                            <option value="chen">辰时 (07-09)</option>
-                            <option value="si">巳时 (09-11)</option>
-                            <option value="wu">午时 (11-13)</option>
-                            <option value="wei">未时 (13-15)</option>
-                            <option value="shen">申时 (15-17)</option>
-                            <option value="you">酉时 (17-19)</option>
-                            <option value="xu">戌时 (19-21)</option>
-                            <option value="hai">亥时 (21-23)</option>
-                        </select>
+                    
+                    <!-- 日期输入区域 -->
+                    <div id="date-input-area">
+                        <div>
+                            <label class="text-[10px] text-[#848e9c] mb-1 block">出生日期</label>
+                            <input type="date" id="dob" value="1998-08-08" class="trade-input w-full p-2 rounded text-xs outline-none">
+                        </div>
+                        <div class="mt-3">
+                            <label class="text-[10px] text-[#848e9c] mb-1 block">出生时辰</label>
+                            <select id="birth-hour" class="trade-input w-full p-2 rounded text-xs outline-none">
+                                <option value="random">吉时 (Random)</option>
+                                <option value="zi">子时 (23-01)</option>
+                                <option value="chou">丑时 (01-03)</option>
+                                <option value="yin">寅时 (03-05)</option>
+                                <option value="mao">卯时 (05-07)</option>
+                                <option value="chen">辰时 (07-09)</option>
+                                <option value="si">巳时 (09-11)</option>
+                                <option value="wu">午时 (11-13)</option>
+                                <option value="wei">未时 (13-15)</option>
+                                <option value="shen">申时 (15-17)</option>
+                                <option value="you">酉时 (17-19)</option>
+                                <option value="xu">戌时 (19-21)</option>
+                                <option value="hai">亥时 (21-23)</option>
+                            </select>
+                        </div>
                     </div>
+                    
+                    <!-- 八字直接输入区域 -->
+                    <div id="bazi-input-area" class="hidden">
+                        <label class="text-[10px] text-[#848e9c] mb-1 block">输入八字（年柱 月柱 日柱 时柱）</label>
+                        <div class="grid grid-cols-4 gap-1 mb-2">
+                            <div>
+                                <div class="text-[9px] text-[#f0b90b] text-center mb-1">年柱</div>
+                                <input type="text" id="bazi-year" maxlength="2" placeholder="甲子" class="trade-input w-full p-1.5 rounded text-xs outline-none text-center">
+                            </div>
+                            <div>
+                                <div class="text-[9px] text-[#f0b90b] text-center mb-1">月柱</div>
+                                <input type="text" id="bazi-month" maxlength="2" placeholder="丙寅" class="trade-input w-full p-1.5 rounded text-xs outline-none text-center">
+                            </div>
+                            <div>
+                                <div class="text-[9px] text-[#f0b90b] text-center mb-1">日柱</div>
+                                <input type="text" id="bazi-day" maxlength="2" placeholder="戊辰" class="trade-input w-full p-1.5 rounded text-xs outline-none text-center">
+                            </div>
+                            <div>
+                                <div class="text-[9px] text-[#f0b90b] text-center mb-1">时柱</div>
+                                <input type="text" id="bazi-hour" maxlength="2" placeholder="庚午" class="trade-input w-full p-1.5 rounded text-xs outline-none text-center">
+                            </div>
+                        </div>
+                        <div class="text-[9px] text-[#848e9c]">
+                            示例：甲子 丙寅 戊辰 庚午
+                        </div>
+                    </div>
+                    
                     <button onclick="runSimulation()" class="w-full py-2.5 rounded bg-[#f0b90b] text-black font-bold text-sm hover:opacity-90 transition">
                         生成人生 K 线 (Space)
                     </button>
@@ -522,6 +558,7 @@
         let currentTab = 'bazi';
         let currentBaziAnalysis = null; // 保存完整的八字分析结果
         let currentTradeTab = 'orderbook'; // 当前交易面板标签
+        let inputMode = 'date'; // 输入模式：'date' 或 'bazi'
         let recentTrades = []; // 最近成交记录
         let tickerData = []; // 行情数据
     
@@ -844,32 +881,89 @@
     
     // 主八字计算函数
     function analyzePattern(dob, birthHour) {
-        const dateObj = new Date(dob);
-        const year = dateObj.getFullYear();
-        const month = dateObj.getMonth() + 1; // JavaScript月份是0-11，转为1-12
-        const day = dateObj.getDate();
+        let yearGan, yearZhi, monthGan, monthZhi, dayGan, dayZhi, hourGan, hourZhi;
+        let year;
         
-        // 精确计算年干支
-        const yearGZ = getYearGanZhi(year, month, day);
-        const yearGan = yearGZ.gan;
-        const yearZhi = yearGZ.zhi;
-        const yearGanIndex = yearGZ.index.gan;
-        
-        // 精确计算月干支
-        const monthGZ = getMonthGanZhi(year, month, day, yearGanIndex);
-        const monthGan = monthGZ.gan;
-        const monthZhi = monthGZ.zhi;
-        
-        // 精确计算日干支
-        const dayGZ = getDayGanZhi(year, month, day);
-        const dayGan = dayGZ.gan;
-        const dayZhi = dayGZ.zhi;
-        const dayGanIndex = dayGZ.index.gan;
-        
-        // 精确计算时干支
-        const hourGZ = getHourGanZhi(dayGanIndex, birthHour);
-        const hourGan = hourGZ.gan;
-        const hourZhi = hourGZ.zhi;
+        // 根据输入模式获取八字
+        if (inputMode === 'bazi') {
+            // 八字直接输入模式
+            const baziYear = document.getElementById('bazi-year').value.trim();
+            const baziMonth = document.getElementById('bazi-month').value.trim();
+            const baziDay = document.getElementById('bazi-day').value.trim();
+            const baziHour = document.getElementById('bazi-hour').value.trim();
+            
+            // 验证输入
+            if (!baziYear || !baziMonth || !baziDay || !baziHour) {
+                showCustomAlert('请完整输入八字（年柱、月柱、日柱、时柱）', 'info');
+                return null;
+            }
+            
+            if (baziYear.length !== 2 || baziMonth.length !== 2 || baziDay.length !== 2 || baziHour.length !== 2) {
+                showCustomAlert('每柱八字应为2个字（天干+地支）\n例如：甲子、丙寅、戊辰、庚午', 'info');
+                return null;
+            }
+            
+            // 解析八字
+            yearGan = baziYear[0];
+            yearZhi = baziYear[1];
+            monthGan = baziMonth[0];
+            monthZhi = baziMonth[1];
+            dayGan = baziDay[0];
+            dayZhi = baziDay[1];
+            hourGan = baziHour[0];
+            hourZhi = baziHour[1];
+            
+            // 验证天干地支有效性
+            if (!tianGan.includes(yearGan) || !diZhi.includes(yearZhi) ||
+                !tianGan.includes(monthGan) || !diZhi.includes(monthZhi) ||
+                !tianGan.includes(dayGan) || !diZhi.includes(dayZhi) ||
+                !tianGan.includes(hourGan) || !diZhi.includes(hourZhi)) {
+                showCustomAlert('八字格式错误！\n天干：甲乙丙丁戊己庚辛壬癸\n地支：子丑寅卯辰巳午未申酉戌亥', 'info');
+                return null;
+            }
+            
+            // 根据年柱推算出生年份（用于大运流年计算）
+            const yearGanIdx = tianGan.indexOf(yearGan);
+            const yearZhiIdx = diZhi.indexOf(yearZhi);
+            // 找到最近的匹配年份
+            const currentYear = new Date().getFullYear();
+            for (let y = currentYear - 80; y <= currentYear; y++) {
+                const offset = y - 1864;
+                if ((offset % 10 + 10) % 10 === yearGanIdx && (offset % 12 + 12) % 12 === yearZhiIdx) {
+                    year = y;
+                    break;
+                }
+            }
+            if (!year) year = currentYear - 30; // 默认30岁
+        } else {
+            // 日期输入模式
+            const dateObj = new Date(dob);
+            year = dateObj.getFullYear();
+            const month = dateObj.getMonth() + 1; // JavaScript月份是0-11，转为1-12
+            const day = dateObj.getDate();
+            
+            // 精确计算年干支
+            const yearGZ = getYearGanZhi(year, month, day);
+            yearGan = yearGZ.gan;
+            yearZhi = yearGZ.zhi;
+            const yearGanIndex = yearGZ.index.gan;
+            
+            // 精确计算月干支
+            const monthGZ = getMonthGanZhi(year, month, day, yearGanIndex);
+            monthGan = monthGZ.gan;
+            monthZhi = monthGZ.zhi;
+            
+            // 精确计算日干支
+            const dayGZ = getDayGanZhi(year, month, day);
+            dayGan = dayGZ.gan;
+            dayZhi = dayGZ.zhi;
+            const dayGanIndex = dayGZ.index.gan;
+            
+            // 精确计算时干支
+            const hourGZ = getHourGanZhi(dayGanIndex, birthHour);
+            hourGan = hourGZ.gan;
+            hourZhi = hourGZ.zhi;
+        }
         
         // 获取日主五行
         const dayWuXing = wuXing[dayGan];
@@ -1239,6 +1333,11 @@
         // --- 【精确的格局与喜用神判断】 ---
         const birthHour = document.getElementById('birth-hour').value;
         const analysis = analyzePattern(dob, birthHour);
+        
+        // 如果八字解析失败，返回 null
+        if (!analysis) {
+            return null;
+        }
         
         // 保存完整分析结果到全局变量
         currentBaziAnalysis = analysis;
@@ -1977,11 +2076,53 @@
         loader.classList.remove('hidden');
         
         setTimeout(() => {
-            const dob = document.getElementById('dob').value;
-            const year = parseInt(dob.split('-')[0]);
+            let dob, year;
+            
+            if (inputMode === 'bazi') {
+                // 八字模式：先验证八字有效性
+                const baziYear = document.getElementById('bazi-year').value.trim();
+                if (!baziYear || baziYear.length !== 2) {
+                    loader.classList.add('hidden');
+                    showCustomAlert('请输入完整的八字！', 'info');
+                    return;
+                }
+                
+                // 根据年柱推算出生年份
+                const yearGan = baziYear[0];
+                const yearZhi = baziYear[1];
+                const yearGanIdx = tianGan.indexOf(yearGan);
+                const yearZhiIdx = diZhi.indexOf(yearZhi);
+                
+                if (yearGanIdx === -1 || yearZhiIdx === -1) {
+                    loader.classList.add('hidden');
+                    showCustomAlert('年柱格式错误！', 'info');
+                    return;
+                }
+                
+                // 找到最近的匹配年份
+                const currentYear = new Date().getFullYear();
+                year = null;
+                for (let y = currentYear - 80; y <= currentYear; y++) {
+                    const offset = y - 1864;
+                    if ((offset % 10 + 10) % 10 === yearGanIdx && (offset % 12 + 12) % 12 === yearZhiIdx) {
+                        year = y;
+                    }
+                }
+                if (!year) year = currentYear - 30;
+                dob = `${year}-01-01`;
+            } else {
+                dob = document.getElementById('dob').value;
+                year = parseInt(dob.split('-')[0]);
+            }
             
             // 将 dob 传递给生成函数
             const dataset = generateData(year, dob); 
+            
+            // 检查是否生成成功（八字验证失败会返回 null）
+            if (!dataset) {
+                loader.classList.add('hidden');
+                return;
+            }
             
             initChart(dataset);
             renderOrderBook(dataset.events);
@@ -1992,8 +2133,8 @@
             if (currentTab === 'bazi') {
                 document.getElementById('bazi-result').innerText = dataset.bazi || '未排盘';
                 document.getElementById('strength-result').innerText = dataset.strength || '-';
-            document.getElementById('pattern-result').innerText = dataset.pattern;
-            document.getElementById('god-result').innerText = dataset.god;
+                document.getElementById('pattern-result').innerText = dataset.pattern;
+                document.getElementById('god-result').innerText = dataset.god;
                 
                 // 根据身强身弱设置颜色
                 if (dataset.strength === '身强') {
@@ -2053,6 +2194,33 @@
         // 重新渲染图表
         if (currentDataset) {
             initChart(currentDataset);
+        }
+    }
+
+    // 切换输入模式（日期/八字）
+    function switchInputMode(mode) {
+        inputMode = mode;
+        
+        // 更新按钮样式
+        const dateBtn = document.getElementById('mode-date');
+        const baziBtn = document.getElementById('mode-bazi');
+        const dateArea = document.getElementById('date-input-area');
+        const baziArea = document.getElementById('bazi-input-area');
+        
+        if (mode === 'date') {
+            dateBtn.classList.remove('bg-[#2b3139]', 'text-[#848e9c]');
+            dateBtn.classList.add('bg-[#f0b90b]', 'text-black', 'font-bold');
+            baziBtn.classList.remove('bg-[#f0b90b]', 'text-black', 'font-bold');
+            baziBtn.classList.add('bg-[#2b3139]', 'text-[#848e9c]');
+            dateArea.classList.remove('hidden');
+            baziArea.classList.add('hidden');
+        } else {
+            baziBtn.classList.remove('bg-[#2b3139]', 'text-[#848e9c]');
+            baziBtn.classList.add('bg-[#f0b90b]', 'text-black', 'font-bold');
+            dateBtn.classList.remove('bg-[#f0b90b]', 'text-black', 'font-bold');
+            dateBtn.classList.add('bg-[#2b3139]', 'text-[#848e9c]');
+            dateArea.classList.add('hidden');
+            baziArea.classList.remove('hidden');
         }
     }
 
@@ -2539,9 +2707,19 @@
 
     // 重置所有设置
     function resetAll() {
+        // 重置输入模式为日期模式
+        inputMode = 'date';
+        switchInputMode('date');
+        
         // 重置日期和时辰
         document.getElementById('dob').value = '1998-08-08';
         document.getElementById('birth-hour').value = 'random';
+        
+        // 清空八字输入框
+        document.getElementById('bazi-year').value = '';
+        document.getElementById('bazi-month').value = '';
+        document.getElementById('bazi-day').value = '';
+        document.getElementById('bazi-hour').value = '';
         
         // 重置粒度为年K
         currentGranularity = 'year';
