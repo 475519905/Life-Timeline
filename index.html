@@ -471,7 +471,7 @@
             <div class="flex border-b border-[#2b3139] text-xs bg-[#0b0e11]">
                 <button id="tab-orderbook" class="flex-1 py-2 text-white border-b-2 border-[#f0b90b]" onclick="switchTradeTab('orderbook')">盘口</button>
                 <button id="tab-trades" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('trades')">成交</button>
-                <button id="tab-records" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('records')">📋记录</button>
+                <button id="tab-records" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('records')">记录</button>
                 <button id="tab-assets" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('assets')">资产</button>
             </div>
 
@@ -1391,16 +1391,27 @@
         const monthNames = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
         
         // 根据粒度生成不同的数据
+        const birthYear = dateObj.getFullYear();
+        const birthMonth = dateObj.getMonth();
+        const birthDay = dateObj.getDate();
+        
         if (currentGranularity === 'day') {
             // 日K线 - 生成当前年份的365天
             const currentDate = new Date();
             const currentYear = currentDate.getFullYear();
+            const currentAge = currentYear - birthYear; // 当前年龄
             const daysInYear = 365;
             
             for (let dayIndex = 0; dayIndex < daysInYear; dayIndex++) {
                 const date = new Date(currentYear, 0, 1);
                 date.setDate(date.getDate() + dayIndex);
                 const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                
+                // 计算这一天的实际年龄
+                let ageAtDate = currentAge;
+                if (date.getMonth() < birthMonth || (date.getMonth() === birthMonth && date.getDate() < birthDay)) {
+                    ageAtDate = currentAge - 1; // 生日之前还没到新年龄
+                }
                 
                 const dayTrend = Math.sin(dayIndex / 30) * 8 + Math.cos(dayIndex / 7) * 5;
                 
@@ -1439,6 +1450,8 @@
                 else if (date.getMonth() === 4 && date.getDate() === 1) eventType = "🎉 劳动节";
                 else if (date.getMonth() === 9 && date.getDate() === 1) eventType = "🎃 国庆节";
                 else if (date.getMonth() === 11 && date.getDate() === 25) eventType = "🎄 圣诞节";
+                // 生日标记
+                else if (date.getMonth() === birthMonth && date.getDate() === birthDay) eventType = "🎂 生日";
                 
                 data.push([
                     dateStr,
@@ -1448,24 +1461,32 @@
                     high.toFixed(1),
                     vol,
                     eventType,
-                    dayIndex
+                    ageAtDate
                 ]);
                 
-                events.push({ year: dateStr, age: dayIndex, close: close.toFixed(1), type: eventType, isUp: close >= open });
+                events.push({ year: dateStr, age: ageAtDate, close: close.toFixed(1), type: eventType, isUp: close >= open, index: dayIndex });
                 score = close;
             }
             
         } else if (currentGranularity === 'month') {
-            // 月K线 - 生成当前10年的120个月
-            const currentDate = new Date();
-            const currentYear = currentDate.getFullYear();
-            const startYearForMonth = currentYear - 5; // 前5年到后5年
+            // 月K线 - 以出生年份为起点，生成人生各阶段的月份数据
+            const currentYear = new Date().getFullYear();
+            const yearsToShow = 10; // 显示10年的数据
+            const startDisplayYear = Math.max(birthYear, currentYear - 5); // 从当前年份前5年开始，但不早于出生年
             
-            for (let yearOffset = 0; yearOffset < 10; yearOffset++) {
+            for (let yearOffset = 0; yearOffset < yearsToShow; yearOffset++) {
                 for (let month = 0; month < 12; month++) {
-                    const displayYear = startYearForMonth + yearOffset;
+                    const displayYear = startDisplayYear + yearOffset;
                     const dateStr = `${displayYear}-${monthNames[month]}`;
                     const totalMonths = yearOffset * 12 + month;
+                    
+                    // 计算该月份对应的年龄
+                    let ageAtMonth = displayYear - birthYear;
+                    if (month < birthMonth) {
+                        ageAtMonth = ageAtMonth - 1;
+                    }
+                    // 确保年龄不为负
+                    if (ageAtMonth < 0) ageAtMonth = 0;
                     
                     const monthTrend = Math.sin(totalMonths / 12) * 10;
                     
@@ -1498,6 +1519,9 @@
                         eventType = neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
                     }
                     
+                    // 生日月标记
+                    if (month === birthMonth) eventType = "🎂 生日月";
+                    
                     data.push([
                         dateStr,
                         open.toFixed(1),
@@ -1506,28 +1530,76 @@
                         high.toFixed(1),
                         vol,
                         eventType,
-                        totalMonths
+                        ageAtMonth
                     ]);
                     
-                    events.push({ year: dateStr, age: totalMonths, close: close.toFixed(1), type: eventType, isUp: close >= open });
+                    events.push({ year: dateStr, age: ageAtMonth, close: close.toFixed(1), type: eventType, isUp: close >= open, index: totalMonths });
                     score = close;
                 }
             }
             
         } else {
             // 年K线 - 原有的80年数据
+            
+            // 根据八字生成独特的命运参数
+            const baziSeed = (analysis.year.gan.charCodeAt(0) + analysis.month.zhi.charCodeAt(0) + 
+                            analysis.day.gan.charCodeAt(0) + analysis.hour.zhi.charCodeAt(0)) % 100;
+            
+            // 随机相位偏移（让每个人的曲线起点不同）
+            const phaseOffset = (baziSeed / 100) * Math.PI * 2;
+            // 随机频率（让周期长度不同，5-12年一个小周期）
+            const frequency1 = 5 + (baziSeed % 8);
+            const frequency2 = 10 + ((baziSeed * 3) % 15);
+            // 随机振幅
+            const amplitude1 = 6 + (baziSeed % 10);
+            const amplitude2 = 4 + ((baziSeed * 2) % 8);
+            
+            // 根据身强身弱设置基础运势
+            let baseScore = 55;
+            if (strengthInfo === '身强') baseScore = 62;
+            else if (strengthInfo === '身弱') baseScore = 48;
+            
+            // 根据格局类型调整波动性
+            let volatility = 1.0;
+            if (patternResult.includes('从') || patternResult.includes('专旺')) {
+                volatility = 1.3; // 特殊格局波动更大
+            } else if (patternResult.includes('中和') || patternResult.includes('平衡')) {
+                volatility = 0.7; // 平衡格局更稳定
+            }
+            
+            // 获取大运信息用于影响运势
+            const daYunList = analysis.daYun || [];
+            
+            score = baseScore + (Math.random() * 10 - 5);
+            
         for (let age = 0; age <= 80; age++) {
             const year = startYear + age;
-            const trend = Math.sin(age / 7) * 12;
+            
+            // 复合波形：多个不同频率的波叠加，产生更自然的曲线
+            const wave1 = Math.sin((age / frequency1) + phaseOffset) * amplitude1;
+            const wave2 = Math.cos((age / frequency2) + phaseOffset * 0.7) * amplitude2;
+            const wave3 = Math.sin((age / 3.5) + phaseOffset * 1.3) * 3; // 高频小波动
+            
+            // 大运影响（每10年一个大运）
+            let daYunBonus = 0;
+            const currentDaYunIndex = Math.floor((age - 8) / 10);
+            if (currentDaYunIndex >= 0 && currentDaYunIndex < daYunList.length) {
+                // 根据大运干支与日主的关系计算加成
+                const daYun = daYunList[currentDaYunIndex];
+                const daYunSeed = (daYun.gan.charCodeAt(0) + daYun.zhi.charCodeAt(0)) % 20 - 10;
+                daYunBonus = daYunSeed * 0.5;
+            }
+            
+            const trend = (wave1 + wave2 + wave3) * volatility + daYunBonus;
             
             let open = score;
-            let change = (Math.random() * 16 - 8) + (trend * 0.3);
+            let change = (Math.random() * 14 - 7) * volatility + (trend * 0.25);
             let close = open + change;
             
             close = Math.max(20, Math.min(95, close));
             
-            let low = Math.min(open, close) - Math.random() * 5;
-            let high = Math.max(open, close) + Math.random() * 5;
+            let low = Math.min(open, close) - Math.random() * 5 * volatility;
+            let high = Math.max(open, close) + Math.random() * 5 * volatility;
             
             low = Math.max(10, low);
             high = Math.min(99, high);
@@ -1577,7 +1649,7 @@
                 age               
             ]);
 
-            events.push({ year, age, close: close.toFixed(1), type: eventType, isUp: close >= open });
+            events.push({ year, age, close: close.toFixed(1), type: eventType, isUp: close >= open, index: age });
             
             score = close;
         }
@@ -1664,7 +1736,16 @@
                         document.getElementById('current-score').innerText = item[2];
                         document.getElementById('current-score').style.color = color;
 
-                        res += `<div style="color:${colors.text}">时间: <b style="color:white">${item[0]} (${item[7]}岁)</b></div>`;
+                        // 根据粒度显示不同的标签
+                        let timeLabel = '';
+                        if (currentGranularity === 'day') {
+                            timeLabel = `日期: <b style="color:white">${item[0]}</b> <span style="color:#848e9c">(${item[7]}岁)</span>`;
+                        } else if (currentGranularity === 'month') {
+                            timeLabel = `月份: <b style="color:white">${item[0]}</b> <span style="color:#848e9c">(${item[7]}岁)</span>`;
+                        } else {
+                            timeLabel = `年份: <b style="color:white">${item[0]}</b> <span style="color:#848e9c">(${item[7]}岁)</span>`;
+                        }
+                        res += `<div style="color:${colors.text}">${timeLabel}</div>`;
                         res += `<div style="display:flex; justify-content:space-between; gap:15px; margin-top:5px;">
                                 <span>开: <b style="color:${color}">${item[1]}</b></span>
                                 <span>高: <b style="color:${color}">${item[4]}</b></span>
@@ -2201,11 +2282,11 @@
             let timeLabel = '';
             let titleText = '';
             if (currentGranularity === 'day') {
-                timeLabel = evt.year;
-                titleText = `点击查看 ${evt.year} 详情`;
+                timeLabel = `${evt.year} <span class="scale-75 inline-block opacity-50">(${evt.age}岁)</span>`;
+                titleText = `点击查看 ${evt.year} (${evt.age}岁) 详情`;
             } else if (currentGranularity === 'month') {
-                timeLabel = evt.year;
-                titleText = `点击查看 ${evt.year} 详情`;
+                timeLabel = `${evt.year} <span class="scale-75 inline-block opacity-50">(${evt.age}岁)</span>`;
+                titleText = `点击查看 ${evt.year} (${evt.age}岁) 详情`;
             } else {
                 timeLabel = `${evt.year} <span class="scale-75 inline-block opacity-50">(${evt.age}岁)</span>`;
                 titleText = `点击查看 ${evt.year} 年 (${evt.age}岁) 详情`;
@@ -2224,7 +2305,8 @@
             `;
             el.title = titleText;
             el.onclick = () => { 
-                jumpToYear(evt.age);
+                // 使用 index 跳转（日K/月K是数组索引，年K是年龄=索引）
+                jumpToYear(evt.index !== undefined ? evt.index : evt.age);
             };
             container.appendChild(el);
         });
