@@ -5,13 +5,29 @@
     <script>
         // 检测是否为移动设备，如果是则跳转到移动版
         (function() {
-            var ua = navigator.userAgent.toLowerCase();
-            var isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
-            var isSmallScreen = window.innerWidth <= 768;
+            // 如果已经在移动版页面，不执行跳转
+            if (window.location.pathname.includes('index-mobile.html')) {
+                return;
+            }
             
-            // 如果是移动设备或屏幕宽度小于768px，跳转到移动版
-            if (isMobile || isSmallScreen) {
-                window.location.href = 'index-mobile.html';
+            var ua = navigator.userAgent || navigator.vendor || window.opera;
+            var uaLower = ua.toLowerCase();
+            
+            // 检测iOS设备（包括iPhone、iPad、iPod）
+            var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+            // 检测Android设备
+            var isAndroid = /android/i.test(uaLower);
+            // 检测其他移动设备
+            var isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(uaLower);
+            // 检测屏幕尺寸（使用多种方法确保准确性）
+            var isSmallScreen = (window.innerWidth && window.innerWidth <= 768) || 
+                                (screen.width && screen.width <= 768) ||
+                                (window.screen && window.screen.width && window.screen.width <= 768);
+            
+            // 如果是iOS设备、其他移动设备或屏幕宽度小于768px，跳转到移动版
+            if (isIOS || isAndroid || isMobileDevice || isSmallScreen) {
+                // 使用replace避免在历史记录中留下记录
+                window.location.replace('index-mobile.html');
             }
         })();
     </script>
