@@ -453,9 +453,14 @@
                         </div>
                     </div>
                     
-                    <button onclick="runSimulation()" class="w-full py-2.5 rounded bg-[#f0b90b] text-black font-bold text-sm hover:opacity-90 transition">
-                        生成人生 K 线 (Space)
-                    </button>
+                    <div class="flex gap-2">
+                        <button onclick="runSimulation()" class="flex-1 py-2.5 rounded bg-[#f0b90b] text-black font-bold text-sm hover:opacity-90 transition">
+                            生成人生 K 线 (Space)
+                        </button>
+                        <button onclick="randomGenerate()" class="py-2.5 px-4 rounded bg-[#2b3139] text-[#f0b90b] font-bold text-sm hover:bg-[#3b4149] transition border border-[#f0b90b]" title="随机生成生日 (R)">
+                            🎲
+                        </button>
+                    </div>
                     <div class="flex gap-2">
                         <button onclick="saveCurrentRecord()" class="flex-1 py-1.5 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-[#f0b90b] transition" title="保存当前记录">
                             💾 保存记录
@@ -611,6 +616,183 @@
         ma25: '#d897cd',  // 紫线
         ma99: '#6885ce'   // 蓝线
     };
+
+    // ============ 八字干支确定性运势计算系统 ============
+    
+    // 五行生克关系表
+    const wuXingShengKe = {
+        '木': { sheng: '火', ke: '土', shengBy: '水', keBy: '金' },
+        '火': { sheng: '土', ke: '金', shengBy: '木', keBy: '水' },
+        '土': { sheng: '金', ke: '水', shengBy: '火', keBy: '木' },
+        '金': { sheng: '水', ke: '木', shengBy: '土', keBy: '火' },
+        '水': { sheng: '木', ke: '火', shengBy: '金', keBy: '土' }
+    };
+    
+    // 获取五行关系分数（用于流年大运计算）
+    // 返回: 正数=有利，负数=不利（降低系数防止溢出）
+    function getWuXingRelationScore(dayWuXing, targetWuXing) {
+        if (dayWuXing === targetWuXing) return 1.5;  // 比和：帮扶，中等有利
+        if (wuXingShengKe[targetWuXing].sheng === dayWuXing) return 2.5;  // 生我：大吉
+        if (wuXingShengKe[dayWuXing].sheng === targetWuXing) return -1; // 我生：泄气
+        if (wuXingShengKe[targetWuXing].ke === dayWuXing) return -2.5;    // 克我：大凶
+        if (wuXingShengKe[dayWuXing].ke === targetWuXing) return 1;     // 我克：得财
+        return 0;
+    }
+    
+    // 解析喜用神字符串，返回喜神五行数组
+    function parseXiYongShen(godResult) {
+        const xiShen = [];
+        const jiShen = [];
+        
+        // 从喜用神描述中提取五行
+        const wuXingList = ['木', '火', '土', '金', '水'];
+        const shiShenToWuXing = {
+            '印': ['水', '木'], '印星': ['水', '木'],
+            '比': ['木'], '比劫': ['木'],
+            '食': ['火'], '食伤': ['火'],
+            '财': ['土', '金'], '财星': ['土', '金'],
+            '官': ['金'], '官杀': ['金']
+        };
+        
+        // 根据描述判断喜忌
+        if (godResult.includes('喜印')) xiShen.push('水');
+        if (godResult.includes('喜比')) xiShen.push('木');
+        if (godResult.includes('喜食') || godResult.includes('喜伤')) xiShen.push('火');
+        if (godResult.includes('喜财')) xiShen.push('土', '金');
+        if (godResult.includes('喜官') || godResult.includes('喜杀')) xiShen.push('金');
+        
+        if (godResult.includes('忌印')) jiShen.push('水');
+        if (godResult.includes('忌比')) jiShen.push('木');
+        if (godResult.includes('忌食') || godResult.includes('忌伤')) jiShen.push('火');
+        if (godResult.includes('忌财')) jiShen.push('土', '金');
+        if (godResult.includes('忌官') || godResult.includes('忌杀')) jiShen.push('金');
+        
+        return { xiShen, jiShen };
+    }
+    
+    // 计算流年干支对命主的确定性影响分数（已优化系数防止溢出）
+    function calculateLiuNianInfluence(dayGan, liuNianGan, liuNianZhi, godResult) {
+        const dayWuXing = wuXing[dayGan];
+        const ganWuXing = wuXing[liuNianGan];
+        const zhiWuXing = wuXing[liuNianZhi];
+        
+        // 基础五行生克分数（降低系数）
+        let score = 0;
+        score += getWuXingRelationScore(dayWuXing, ganWuXing) * 0.8;
+        score += getWuXingRelationScore(dayWuXing, zhiWuXing) * 0.5;
+        
+        // 喜用神加成（降低系数）
+        const { xiShen, jiShen } = parseXiYongShen(godResult);
+        
+        if (xiShen.includes(ganWuXing)) score += 1.5;
+        if (xiShen.includes(zhiWuXing)) score += 1;
+        if (jiShen.includes(ganWuXing)) score -= 1.5;
+        if (jiShen.includes(zhiWuXing)) score -= 1;
+        
+        // 天干地支指数哈希（用于产生周期性微调）
+        const ganIndex = tianGan.indexOf(liuNianGan);
+        const zhiIndex = diZhi.indexOf(liuNianZhi);
+        const microAdjust = Math.sin(ganIndex * 0.7 + zhiIndex * 0.5) * 1;
+        
+        return score + microAdjust;
+    }
+    
+    // 计算大运对命主的确定性影响分数（已优化系数防止溢出）
+    function calculateDaYunInfluence(dayGan, daYunGan, daYunZhi, godResult) {
+        const dayWuXing = wuXing[dayGan];
+        const ganWuXing = wuXing[daYunGan];
+        const zhiWuXing = wuXing[daYunZhi];
+        
+        let score = 0;
+        score += getWuXingRelationScore(dayWuXing, ganWuXing) * 1.0;
+        score += getWuXingRelationScore(dayWuXing, zhiWuXing) * 0.7;
+        
+        const { xiShen, jiShen } = parseXiYongShen(godResult);
+        
+        if (xiShen.includes(ganWuXing)) score += 2;
+        if (xiShen.includes(zhiWuXing)) score += 1.5;
+        if (jiShen.includes(ganWuXing)) score -= 2;
+        if (jiShen.includes(zhiWuXing)) score -= 1.5;
+        
+        return score;
+    }
+    
+    // 计算某一年的流年干支
+    function getLiuNianGanZhi(year) {
+        const offset = year - 1864;
+        const ganIndex = ((offset % 10) + 10) % 10;
+        const zhiIndex = ((offset % 12) + 12) % 12;
+        return {
+            gan: tianGan[ganIndex],
+            zhi: diZhi[zhiIndex]
+        };
+    }
+    
+    // 计算某一月的月干支（基于年干和月份）
+    function getMonthGanZhiByYearAndMonth(yearGan, monthNum) {
+        // 月支固定：正月寅，二月卯，...
+        const monthZhiMap = [11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // 1月=丑，2月=寅...
+        const zhiIndex = monthZhiMap[monthNum - 1];
+        
+        // 月干根据年干推算（五虎遁）
+        const yearGanIndex = tianGan.indexOf(yearGan);
+        const monthGanStart = {
+            0: 2, 5: 2,  // 甲、己年从丙开始
+            1: 4, 6: 4,  // 乙、庚年从戊开始
+            2: 6, 7: 6,  // 丙、辛年从庚开始
+            3: 8, 8: 8,  // 丁、壬年从壬开始
+            4: 0, 9: 0   // 戊、癸年从甲开始
+        };
+        const startGan = monthGanStart[yearGanIndex];
+        const ganIndex = (startGan + zhiIndex) % 10;
+        
+        return {
+            gan: tianGan[ganIndex],
+            zhi: diZhi[zhiIndex]
+        };
+    }
+    
+    // 获取当前大运（根据年龄和大运列表）
+    function getCurrentDaYun(age, daYunList) {
+        if (!daYunList || daYunList.length === 0) return null;
+        for (let i = daYunList.length - 1; i >= 0; i--) {
+            if (age >= daYunList[i].age) {
+                return daYunList[i];
+            }
+        }
+        return daYunList[0];
+    }
+    
+    // 根据干支索引计算确定性波动值
+    function getDeterministicWave(ganIndex, zhiIndex, phase) {
+        // 使用正弦余弦组合产生平滑但确定的波动
+        const wave1 = Math.sin(ganIndex * 0.628 + phase) * 3;
+        const wave2 = Math.cos(zhiIndex * 0.524 + phase * 0.7) * 2;
+        const wave3 = Math.sin((ganIndex + zhiIndex) * 0.314 + phase * 1.3) * 1.5;
+        return wave1 + wave2 + wave3;
+    }
+    
+    // 根据八字五行分布计算基础运势
+    function calculateBaseScore(wuXingCount, strength) {
+        const total = Object.values(wuXingCount).reduce((a, b) => a + b, 0);
+        const values = Object.values(wuXingCount);
+        
+        // 计算五行分布的均衡度（标准差越小越均衡）
+        const mean = total / 5;
+        const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / 5;
+        const stdDev = Math.sqrt(variance);
+        
+        // 均衡度影响基础分
+        const balanceBonus = Math.max(0, 10 - stdDev * 3);
+        
+        // 身强身弱影响
+        let strengthBase = 55;
+        if (strength === '身强') strengthBase = 60;
+        else if (strength === '身弱') strengthBase = 50;
+        
+        return strengthBase + balanceBonus;
+    }
+    // ============ 八字干支确定性运势计算系统结束 ============
 
     // 计算均线 (Moving Average)
     function calculateMA(dayCount, data) {
@@ -890,11 +1072,21 @@
         const hourZhiMap = {
             'zi': 0, 'chou': 1, 'yin': 2, 'mao': 3,
             'chen': 4, 'si': 5, 'wu': 6, 'wei': 7,
-            'shen': 8, 'you': 9, 'xu': 10, 'hai': 11,
-            'random': Math.floor(Math.random() * 12)
+            'shen': 8, 'you': 9, 'xu': 10, 'hai': 11
         };
         
-        const zhiIndex = hourZhiMap[birthHour] !== undefined ? hourZhiMap[birthHour] : hourZhiMap['random'];
+        // 如果选择"吉时/random"，根据日干确定性地选择时辰
+        // 使用五行相生原则：日干对应的吉时
+        let zhiIndex;
+        if (birthHour === 'random') {
+            // 根据日干索引确定性地选择吉时（每个日干有固定的吉时）
+            // 甲木吉时卯木，乙木吉时巳火，丙火吉时酉金，丁火吉时亥水，戊土吉时丑土
+            // 己土吉时卯木，庚金吉时巳火，辛金吉时酉金，壬水吉时亥水，癸水吉时丑土
+            const jiShiMap = [3, 5, 9, 11, 1, 3, 5, 9, 11, 1]; // 甲乙丙丁戊己庚辛壬癸对应的吉时地支索引
+            zhiIndex = jiShiMap[dayGanIndex];
+        } else {
+            zhiIndex = hourZhiMap[birthHour] !== undefined ? hourZhiMap[birthHour] : 0;
+        }
         
         // 五鼠遁日起时诀：甲己还加甲，乙庚丙作初
         //                 丙辛从戊起，丁壬庚子居
@@ -1363,11 +1555,10 @@
         };
     }
 
-    // 模拟数据生成器 - 增加 dob 参数
+    // 数据生成器 - 完全基于八字干支确定性计算
     function generateData(startYear, dob) {
         const data = []; // [Date, Open, Close, Low, High, Vol]
         const events = [];
-        let score = 60;
         
         // --- 【精确的格局与喜用神判断】 ---
         const birthHour = document.getElementById('birth-hour').value;
@@ -1387,272 +1578,377 @@
         let strengthInfo = analysis.strength;
         // --- 【格局与喜用神判断结束】 ---
 
-        const dateObj = new Date(dob);
         const monthNames = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+        const birthYear = startYear;
+        const dayGan = analysis.day.gan;
+        const daYunList = analysis.daYun || [];
         
-        // 根据粒度生成不同的数据
-        const birthYear = dateObj.getFullYear();
-        const birthMonth = dateObj.getMonth();
-        const birthDay = dateObj.getDate();
+        // 计算基础运势分数（完全基于八字五行分布）
+        let baseScore = calculateBaseScore(analysis.wuXingCount, strengthInfo);
+        
+        // 计算八字固有的相位参数（用于确定性波形）
+        const yearGanIndex = tianGan.indexOf(analysis.year.gan);
+        const yearZhiIndex = diZhi.indexOf(analysis.year.zhi);
+        const dayGanIndex = tianGan.indexOf(analysis.day.gan);
+        const dayZhiIndex = diZhi.indexOf(analysis.day.zhi);
+        const baziPhase = (yearGanIndex * 0.3 + yearZhiIndex * 0.2 + dayGanIndex * 0.4 + dayZhiIndex * 0.1) * Math.PI;
+        
+        // 根据格局类型调整波动系数
+        let volatilityFactor = 1.0;
+        if (patternResult.includes('从') || patternResult.includes('专旺')) {
+            volatilityFactor = 1.4; // 特殊格局波动更大
+        } else if (patternResult.includes('中和') || patternResult.includes('平衡')) {
+            volatilityFactor = 0.6; // 平衡格局更稳定
+        } else if (patternResult.includes('身弱')) {
+            volatilityFactor = 1.2;
+        }
+        
+        let score = baseScore;
+        
+        // 回归均值系数（防止分数持续偏离）
+        const meanReversionStrength = 0.08;
         
         if (currentGranularity === 'day') {
-            // 日K线 - 生成当前年份的365天
-            const currentDate = new Date();
-            const currentYear = currentDate.getFullYear();
-            const currentAge = currentYear - birthYear; // 当前年龄
-            const daysInYear = 365;
-            
-            for (let dayIndex = 0; dayIndex < daysInYear; dayIndex++) {
-                const date = new Date(currentYear, 0, 1);
-                date.setDate(date.getDate() + dayIndex);
-                const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            // 日K线 - 生成0-80岁，每年12个关键日（每月一个代表日），共972个点
+            for (let age = 0; age <= 80; age++) {
+                const year = birthYear + age;
                 
-                // 计算这一天的实际年龄
-                let ageAtDate = currentAge;
-                if (date.getMonth() < birthMonth || (date.getMonth() === birthMonth && date.getDate() < birthDay)) {
-                    ageAtDate = currentAge - 1; // 生日之前还没到新年龄
+                // 获取该年流年干支
+                const liuNian = getLiuNianGanZhi(year);
+                const liuNianInfluence = calculateLiuNianInfluence(dayGan, liuNian.gan, liuNian.zhi, godResult);
+                
+                // 获取当前大运
+                const currentDaYun = getCurrentDaYun(age, daYunList);
+                let daYunInfluence = 0;
+                if (currentDaYun) {
+                    daYunInfluence = calculateDaYunInfluence(dayGan, currentDaYun.gan, currentDaYun.zhi, godResult);
                 }
                 
-                const dayTrend = Math.sin(dayIndex / 30) * 8 + Math.cos(dayIndex / 7) * 5;
-                
-                let open = score;
-                let change = (Math.random() * 10 - 5) + (dayTrend * 0.2);
-                let close = open + change;
-                
-                close = Math.max(20, Math.min(95, close));
-                
-                let low = Math.min(open, close) - Math.random() * 3;
-                let high = Math.max(open, close) + Math.random() * 3;
-                
-                low = Math.max(10, low);
-                high = Math.min(99, high);
-                
-                let vol = Math.floor(Math.random() * 500) + 300;
-                
-                // 每日事件
-                let eventType = "平稳";
-                const changePercent = ((close - open) / open) * 100;
-                
-                if (changePercent > 5) {
-                    const goodEvents = ["心情愉悦", "小有收获", "好运连连", "事事顺心"];
-                    eventType = goodEvents[Math.floor(Math.random() * goodEvents.length)];
-                } else if (changePercent < -5) {
-                    const badEvents = ["小有波折", "需要休息", "保持低调", "调整心态"];
-                    eventType = badEvents[Math.floor(Math.random() * badEvents.length)];
-                } else {
-                    const neutralEvents = ["平稳", "如常", "顺其自然"];
-                    eventType = neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
+                for (let month = 0; month < 12; month++) {
+                    const dayOfMonth = 15;
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
+                    const dataIndex = age * 12 + month;
+                    
+                    // 获取月干支
+                    const monthGZ = getMonthGanZhiByYearAndMonth(liuNian.gan, month + 1);
+                    const monthGanIndex = tianGan.indexOf(monthGZ.gan);
+                    const monthZhiIndex = diZhi.indexOf(monthGZ.zhi);
+                    
+                    // 月份运势影响（基于月干支与日主关系）
+                    const monthWuXing = wuXing[monthGZ.gan];
+                    const dayWuXing = wuXing[dayGan];
+                    const monthInfluence = getWuXingRelationScore(dayWuXing, monthWuXing) * 0.3;
+                    
+                    // 确定性波动（基于干支索引）
+                    const dayWave = getDeterministicWave(monthGanIndex, monthZhiIndex, baziPhase + dataIndex * 0.1);
+                    
+                    // 回归均值力（当分数偏离基础分数时，产生反向拉力）
+                    const meanReversion = (baseScore - score) * meanReversionStrength;
+                    
+                    // 综合运势变化（降低系数）
+                    let change = (liuNianInfluence * 0.2 + daYunInfluence * 0.15 + monthInfluence + dayWave * 0.2 + meanReversion) * volatilityFactor;
+                    
+                    // 限制单次变化幅度
+                    change = Math.max(-8, Math.min(8, change));
+                    
+                    let open = score;
+                    let close = open + change;
+                    close = Math.max(25, Math.min(90, close));
+                    
+                    // 计算高低点（增加随机性，更真实的K线形态）
+                    const hlSeed = (monthGanIndex * 3 + monthZhiIndex * 5 + dataIndex) % 100;
+                    const hlSeed2 = (monthGanIndex * 7 + monthZhiIndex * 11 + dataIndex * 3) % 100;
+                    const hlSeed3 = (monthGanIndex * 13 + monthZhiIndex * 17 + dataIndex * 7 + age) % 100;
+                    const bodySize = Math.abs(close - open);
+                    
+                    // 随机决定是否有长影线（约20%概率出现长影线）
+                    const hasLongUpperShadow = hlSeed3 % 5 === 0;
+                    const hasLongLowerShadow = hlSeed3 % 7 === 0;
+                    
+                    // 基础影线长度，加入更多随机变化
+                    const baseUpper = bodySize * (0.2 + hlSeed / 200) + 0.3 + (hasLongUpperShadow ? 2 + hlSeed2 / 30 : 0);
+                    const baseLower = bodySize * (0.2 + hlSeed2 / 200) + 0.3 + (hasLongLowerShadow ? 2 + hlSeed / 30 : 0);
+                    
+                    // 根据涨跌调整影线偏好
+                    const isUp = close >= open;
+                    const upperMult = isUp ? (0.4 + hlSeed / 150) : (0.7 + hlSeed2 / 120);
+                    const lowerMult = isUp ? (0.7 + hlSeed2 / 120) : (0.4 + hlSeed / 150);
+                    
+                    let high = Math.max(open, close) + baseUpper * upperMult;
+                    let low = Math.min(open, close) - baseLower * lowerMult;
+                    low = Math.max(25, low);
+                    high = Math.min(90, high);
+                    
+                    // 能量值（基于干支索引的确定性计算，避免周期性波浪）
+                    const volSeed = (monthGanIndex * 7 + monthZhiIndex * 11 + age * 13 + dataIndex) % 100;
+                    let vol = 400 + volSeed * 5 + (age > 20 && age < 50 ? 200 : 0);
+                    
+                    // 确定性事件选择
+                    let eventType = "平稳";
+                    const changePercent = ((close - open) / open) * 100;
+                    
+                    if (changePercent > 5) {
+                        const goodEvents = ["心情愉悦", "小有收获", "好运连连", "事事顺心"];
+                        eventType = goodEvents[(monthGanIndex + Math.floor(Math.abs(changePercent))) % goodEvents.length];
+                    } else if (changePercent < -5) {
+                        const badEvents = ["小有波折", "需要休息", "保持低调", "调整心态"];
+                        eventType = badEvents[(monthZhiIndex + Math.floor(Math.abs(changePercent))) % badEvents.length];
+                    } else {
+                        const neutralEvents = ["平稳", "如常", "顺其自然"];
+                        eventType = neutralEvents[(monthGanIndex + monthZhiIndex) % neutralEvents.length];
+                    }
+                    
+                    // 特殊标记
+                    if (month === 0) eventType = "🎊 新年";
+                    if (age === 18 && month === 0) eventType = "🎓 成人礼";
+                    if (age === 22 && month === 5) eventType = "🎓 毕业季";
+                    
+                    // 流年和大运信息
+                    const liuNianGanZhi = liuNian.gan + liuNian.zhi;
+                    const daYunGanZhi = currentDaYun ? currentDaYun.gan + currentDaYun.zhi : '--';
+                    
+                    data.push([dateStr, open.toFixed(1), close.toFixed(1), low.toFixed(1), high.toFixed(1), vol, eventType, age, liuNianGanZhi, daYunGanZhi]);
+                    events.push({ year: dateStr, age: age, close: close.toFixed(1), type: eventType, isUp: close >= open, index: dataIndex });
+                    score = close;
                 }
-                
-                // 特殊日期标记
-                if (date.getMonth() === 0 && date.getDate() === 1) eventType = "🎊 元旦";
-                else if (date.getMonth() === 1 && date.getDate() === 14) eventType = "💝 情人节";
-                else if (date.getMonth() === 4 && date.getDate() === 1) eventType = "🎉 劳动节";
-                else if (date.getMonth() === 9 && date.getDate() === 1) eventType = "🎃 国庆节";
-                else if (date.getMonth() === 11 && date.getDate() === 25) eventType = "🎄 圣诞节";
-                // 生日标记
-                else if (date.getMonth() === birthMonth && date.getDate() === birthDay) eventType = "🎂 生日";
-                
-                data.push([
-                    dateStr,
-                    open.toFixed(1),
-                    close.toFixed(1),
-                    low.toFixed(1),
-                    high.toFixed(1),
-                    vol,
-                    eventType,
-                    ageAtDate
-                ]);
-                
-                events.push({ year: dateStr, age: ageAtDate, close: close.toFixed(1), type: eventType, isUp: close >= open, index: dayIndex });
-                score = close;
             }
             
         } else if (currentGranularity === 'month') {
-            // 月K线 - 以出生年份为起点，生成人生各阶段的月份数据
-            const currentYear = new Date().getFullYear();
-            const yearsToShow = 10; // 显示10年的数据
-            const startDisplayYear = Math.max(birthYear, currentYear - 5); // 从当前年份前5年开始，但不早于出生年
-            
-            for (let yearOffset = 0; yearOffset < yearsToShow; yearOffset++) {
+            // 月K线 - 生成0-80岁的每个月，共972个月
+            for (let age = 0; age <= 80; age++) {
+                const year = birthYear + age;
+                
+                // 获取该年流年干支
+                const liuNian = getLiuNianGanZhi(year);
+                const liuNianInfluence = calculateLiuNianInfluence(dayGan, liuNian.gan, liuNian.zhi, godResult);
+                
+                // 获取当前大运
+                const currentDaYun = getCurrentDaYun(age, daYunList);
+                let daYunInfluence = 0;
+                if (currentDaYun) {
+                    daYunInfluence = calculateDaYunInfluence(dayGan, currentDaYun.gan, currentDaYun.zhi, godResult);
+                }
+                
                 for (let month = 0; month < 12; month++) {
-                    const displayYear = startDisplayYear + yearOffset;
-                    const dateStr = `${displayYear}-${monthNames[month]}`;
-                    const totalMonths = yearOffset * 12 + month;
+                    const dateStr = `${year}-${monthNames[month]}`;
+                    const totalMonths = age * 12 + month;
                     
-                    // 计算该月份对应的年龄
-                    let ageAtMonth = displayYear - birthYear;
-                    if (month < birthMonth) {
-                        ageAtMonth = ageAtMonth - 1;
-                    }
-                    // 确保年龄不为负
-                    if (ageAtMonth < 0) ageAtMonth = 0;
+                    // 获取月干支
+                    const monthGZ = getMonthGanZhiByYearAndMonth(liuNian.gan, month + 1);
+                    const monthGanIndex = tianGan.indexOf(monthGZ.gan);
+                    const monthZhiIndex = diZhi.indexOf(monthGZ.zhi);
                     
-                    const monthTrend = Math.sin(totalMonths / 12) * 10;
+                    // 月干支对日主的影响（降低系数）
+                    const monthGanWuXing = wuXing[monthGZ.gan];
+                    const monthZhiWuXing = wuXing[monthGZ.zhi];
+                    const dayWuXing = wuXing[dayGan];
+                    const monthInfluence = (getWuXingRelationScore(dayWuXing, monthGanWuXing) * 0.4 + 
+                                           getWuXingRelationScore(dayWuXing, monthZhiWuXing) * 0.3);
+                    
+                    // 确定性波动
+                    const monthWave = getDeterministicWave(monthGanIndex, monthZhiIndex, baziPhase + totalMonths * 0.05);
+                    
+                    // 回归均值力
+                    const meanReversion = (baseScore - score) * meanReversionStrength;
+                    
+                    // 综合运势变化（降低系数）
+                    let change = (liuNianInfluence * 0.25 + daYunInfluence * 0.15 + monthInfluence + monthWave * 0.2 + meanReversion) * volatilityFactor;
+                    
+                    // 限制单次变化幅度
+                    change = Math.max(-6, Math.min(6, change));
                     
                     let open = score;
-                    let change = (Math.random() * 12 - 6) + (monthTrend * 0.25);
                     let close = open + change;
+                    close = Math.max(30, Math.min(85, close));
                     
-                    close = Math.max(20, Math.min(95, close));
+                    // 计算高低点（增加随机性，更真实的K线形态）
+                    const hlSeed = (monthGanIndex * 3 + monthZhiIndex * 5 + totalMonths) % 100;
+                    const hlSeed2 = (monthGanIndex * 7 + monthZhiIndex * 13 + totalMonths * 3) % 100;
+                    const hlSeed3 = (monthGanIndex * 11 + monthZhiIndex * 19 + totalMonths * 7 + age * 3) % 100;
+                    const bodySize = Math.abs(close - open);
                     
-                    let low = Math.min(open, close) - Math.random() * 4;
-                    let high = Math.max(open, close) + Math.random() * 4;
+                    // 随机决定是否有长影线
+                    const hasLongUpperShadow = hlSeed3 % 6 === 0;
+                    const hasLongLowerShadow = hlSeed3 % 8 === 0;
                     
-                    low = Math.max(10, low);
-                    high = Math.min(99, high);
+                    // 基础影线长度
+                    const baseUpper = bodySize * (0.15 + hlSeed / 250) + 0.25 + (hasLongUpperShadow ? 1.5 + hlSeed2 / 40 : 0);
+                    const baseLower = bodySize * (0.15 + hlSeed2 / 250) + 0.25 + (hasLongLowerShadow ? 1.5 + hlSeed / 40 : 0);
                     
-                    let vol = Math.floor(Math.random() * 800) + 400;
+                    // 根据涨跌调整影线偏好
+                    const isUp = close >= open;
+                    const upperMult = isUp ? (0.35 + hlSeed / 180) : (0.65 + hlSeed2 / 140);
+                    const lowerMult = isUp ? (0.65 + hlSeed2 / 140) : (0.35 + hlSeed / 180);
                     
-                    // 每月事件
+                    let high = Math.max(open, close) + baseUpper * upperMult;
+                    let low = Math.min(open, close) - baseLower * lowerMult;
+                    low = Math.max(25, low);
+                    high = Math.min(90, high);
+                    
+                    // 能量值（基于干支索引的确定性计算，避免周期性波浪）
+                    const volSeed = (monthGanIndex * 7 + monthZhiIndex * 11 + age * 17 + totalMonths * 3) % 100;
+                    let vol = 500 + volSeed * 6 + (age > 20 && age < 50 ? 300 : 0);
+                    
+                    // 确定性事件选择
                     let eventType = "平稳";
                     const changePercent = ((close - open) / open) * 100;
                     
                     if (changePercent > 6) {
                         const goodEvents = ["月度进步", "收获颇丰", "运势上扬", "诸事顺利"];
-                        eventType = goodEvents[Math.floor(Math.random() * goodEvents.length)];
+                        eventType = goodEvents[(monthGanIndex + Math.floor(Math.abs(changePercent))) % goodEvents.length];
                     } else if (changePercent < -6) {
                         const badEvents = ["略有起伏", "需要调整", "稳中求进", "静待转机"];
-                        eventType = badEvents[Math.floor(Math.random() * badEvents.length)];
+                        eventType = badEvents[(monthZhiIndex + Math.floor(Math.abs(changePercent))) % badEvents.length];
                     } else {
                         const neutralEvents = ["平稳", "稳定发展", "按部就班"];
-                        eventType = neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
+                        eventType = neutralEvents[(monthGanIndex + monthZhiIndex) % neutralEvents.length];
                     }
                     
-                    // 生日月标记
-                    if (month === birthMonth) eventType = "🎂 生日月";
+                    // 特殊标记
+                    if (age === 18 && month === 0) eventType = "🎓 成人礼";
+                    else if (age === 22 && month === 6) eventType = "🎓 毕业";
+                    else if (age === 30 && month === 0) eventType = "🎂 而立之年";
+                    else if (age === 40 && month === 0) eventType = "💪 不惑之年";
+                    else if (age === 50 && month === 0) eventType = "🌟 知天命";
+                    else if (age === 60 && month === 0) eventType = "🎊 花甲之年";
                     
-                    data.push([
-                        dateStr,
-                        open.toFixed(1),
-                        close.toFixed(1),
-                        low.toFixed(1),
-                        high.toFixed(1),
-                        vol,
-                        eventType,
-                        ageAtMonth
-                    ]);
+                    // 流年和大运信息
+                    const liuNianGanZhi = liuNian.gan + liuNian.zhi;
+                    const daYunGanZhi = currentDaYun ? currentDaYun.gan + currentDaYun.zhi : '--';
                     
-                    events.push({ year: dateStr, age: ageAtMonth, close: close.toFixed(1), type: eventType, isUp: close >= open, index: totalMonths });
+                    data.push([dateStr, open.toFixed(1), close.toFixed(1), low.toFixed(1), high.toFixed(1), vol, eventType, age, liuNianGanZhi, daYunGanZhi]);
+                    events.push({ year: dateStr, age: age, close: close.toFixed(1), type: eventType, isUp: close >= open, index: totalMonths });
                     score = close;
                 }
             }
             
         } else {
-            // 年K线 - 原有的80年数据
+            // 年K线 - 完全基于流年大运的确定性计算
             
-            // 根据八字生成独特的命运参数
-            const baziSeed = (analysis.year.gan.charCodeAt(0) + analysis.month.zhi.charCodeAt(0) + 
-                            analysis.day.gan.charCodeAt(0) + analysis.hour.zhi.charCodeAt(0)) % 100;
-            
-            // 随机相位偏移（让每个人的曲线起点不同）
-            const phaseOffset = (baziSeed / 100) * Math.PI * 2;
-            // 随机频率（让周期长度不同，5-12年一个小周期）
-            const frequency1 = 5 + (baziSeed % 8);
-            const frequency2 = 10 + ((baziSeed * 3) % 15);
-            // 随机振幅
-            const amplitude1 = 6 + (baziSeed % 10);
-            const amplitude2 = 4 + ((baziSeed * 2) % 8);
-            
-            // 根据身强身弱设置基础运势
-            let baseScore = 55;
-            if (strengthInfo === '身强') baseScore = 62;
-            else if (strengthInfo === '身弱') baseScore = 48;
-            
-            // 根据格局类型调整波动性
-            let volatility = 1.0;
-            if (patternResult.includes('从') || patternResult.includes('专旺')) {
-                volatility = 1.3; // 特殊格局波动更大
-            } else if (patternResult.includes('中和') || patternResult.includes('平衡')) {
-                volatility = 0.7; // 平衡格局更稳定
+            for (let age = 0; age <= 80; age++) {
+                const year = startYear + age;
+                
+                // 获取该年流年干支
+                const liuNian = getLiuNianGanZhi(year);
+                const liuNianGanIndex = tianGan.indexOf(liuNian.gan);
+                const liuNianZhiIndex = diZhi.indexOf(liuNian.zhi);
+                
+                // 计算流年对日主的确定性影响
+                const liuNianInfluence = calculateLiuNianInfluence(dayGan, liuNian.gan, liuNian.zhi, godResult);
+                
+                // 获取当前大运并计算影响
+                const currentDaYun = getCurrentDaYun(age, daYunList);
+                let daYunInfluence = 0;
+                if (currentDaYun) {
+                    daYunInfluence = calculateDaYunInfluence(dayGan, currentDaYun.gan, currentDaYun.zhi, godResult);
+                }
+                
+                // 流年与大运的天克地冲检测（确定性，降低系数）
+                let clashPenalty = 0;
+                if (currentDaYun) {
+                    const daYunGanIndex = tianGan.indexOf(currentDaYun.gan);
+                    const daYunZhiIndex = diZhi.indexOf(currentDaYun.zhi);
+                    // 天干相克
+                    if (Math.abs(liuNianGanIndex - daYunGanIndex) === 5) clashPenalty -= 1.5;
+                    // 地支相冲
+                    if (Math.abs(liuNianZhiIndex - daYunZhiIndex) === 6) clashPenalty -= 2;
+                    // 天干相合
+                    if ((liuNianGanIndex + daYunGanIndex) % 5 === 0 && liuNianGanIndex !== daYunGanIndex) clashPenalty += 1;
+                }
+                
+                // 年龄阶段性影响（确定性三角函数波形，降低振幅）
+                const ageWave = Math.sin(age * 0.15 + baziPhase) * 2 + Math.cos(age * 0.08 + baziPhase * 0.7) * 1.5;
+                
+                // 回归均值力
+                const meanReversion = (baseScore - score) * meanReversionStrength;
+                
+                // 综合运势变化（完全确定性，降低系数）
+                let change = (liuNianInfluence * 0.5 + daYunInfluence * 0.3 + clashPenalty + ageWave * 0.3 + meanReversion) * volatilityFactor;
+                
+                // 限制单次变化幅度
+                change = Math.max(-8, Math.min(8, change));
+                
+                let open = score;
+                let close = open + change;
+                close = Math.max(30, Math.min(85, close));
+                
+                // 计算高低点（增加随机性，更真实的K线形态）
+                const hlSeed = (liuNianGanIndex * 3 + liuNianZhiIndex * 5 + age) % 100;
+                const hlSeed2 = (liuNianGanIndex * 7 + liuNianZhiIndex * 11 + age * 3) % 100;
+                const hlSeed3 = (liuNianGanIndex * 13 + liuNianZhiIndex * 17 + age * 7) % 100;
+                const bodySize = Math.abs(close - open);
+                
+                // 随机决定是否有长影线（更丰富的K线形态）
+                const hasLongUpperShadow = hlSeed3 % 5 === 0;
+                const hasLongLowerShadow = hlSeed3 % 7 === 0;
+                const hasDoji = hlSeed3 % 11 === 0 && bodySize < 1; // 十字星形态
+                
+                // 基础影线长度
+                let baseUpper = bodySize * (0.25 + hlSeed / 200) + 0.5 + (hasLongUpperShadow ? 2.5 + hlSeed2 / 25 : 0);
+                let baseLower = bodySize * (0.25 + hlSeed2 / 200) + 0.5 + (hasLongLowerShadow ? 2.5 + hlSeed / 25 : 0);
+                
+                // 十字星形态增加影线
+                if (hasDoji) {
+                    baseUpper += 1.5 + hlSeed / 50;
+                    baseLower += 1.5 + hlSeed2 / 50;
+                }
+                
+                // 根据涨跌调整影线偏好
+                const isUp = close >= open;
+                const upperMult = isUp ? (0.4 + hlSeed / 160) : (0.7 + hlSeed2 / 130);
+                const lowerMult = isUp ? (0.7 + hlSeed2 / 130) : (0.4 + hlSeed / 160);
+                
+                let high = Math.max(open, close) + baseUpper * upperMult;
+                let low = Math.min(open, close) - baseLower * lowerMult;
+                low = Math.max(25, low);
+                high = Math.min(90, high);
+
+                // 能量值（基于流年干支的确定性计算，避免周期性波浪）
+                const volSeed = (liuNianGanIndex * 7 + liuNianZhiIndex * 11 + age * 13) % 100;
+                let vol = 600 + volSeed * 8;
+                if (age > 20 && age < 50) vol += 400;
+                
+                // 基于流年干支的确定性事件选择
+                let eventType = "平稳";
+                const changePercent = ((close - open) / open) * 100;
+                const eventSeed = (liuNianGanIndex * 10 + liuNianZhiIndex + age) % 100;
+                
+                if (changePercent > 8) {
+                    const goodEvents = ["财星高照", "大吉大利", "贵人相助", "事业高升", "桃花运旺"];
+                    eventType = goodEvents[eventSeed % goodEvents.length];
+                } else if (changePercent > 3) {
+                    const normalGoodEvents = ["小有收获", "稳步上升", "运势渐好", "心想事成"];
+                    eventType = normalGoodEvents[eventSeed % normalGoodEvents.length];
+                } else if (changePercent < -8) {
+                    const badEvents = ["七杀克身", "破财之灾", "小人作祟", "事业受阻", "健康预警"];
+                    eventType = badEvents[eventSeed % badEvents.length];
+                } else if (changePercent < -3) {
+                    const normalBadEvents = ["略有波折", "需要谨慎", "低调为宜", "蓄势待发"];
+                    eventType = normalBadEvents[eventSeed % normalBadEvents.length];
+                } else {
+                    const neutralEvents = ["平稳", "中规中矩", "顺其自然", "静候佳音"];
+                    eventType = neutralEvents[eventSeed % neutralEvents.length];
+                }
+                
+                // 特殊年龄段的事件（确定性判断）
+                if (age === 18) eventType = "🎓 成人礼";
+                else if (age === 22) eventType = "🎓 大学毕业";
+                else if (age >= 25 && age <= 35 && changePercent > 5 && eventSeed % 3 === 0) eventType = "💼 职场晋升";
+                else if (age >= 28 && age <= 32 && changePercent > 3 && eventSeed % 4 === 0) eventType = "💑 良缘";
+                else if (age === 30) eventType = "🎂 而立之年";
+                else if (age === 40) eventType = "💪 不惑之年";
+                else if (age === 50) eventType = "🌟 知天命";
+                else if (age === 60) eventType = "🎊 花甲之年";
+
+                // 流年和大运信息
+                const liuNianGanZhi = liuNian.gan + liuNian.zhi;
+                const daYunGanZhi = currentDaYun ? currentDaYun.gan + currentDaYun.zhi : '--';
+
+                data.push([`${year}`, open.toFixed(1), close.toFixed(1), low.toFixed(1), high.toFixed(1), vol, eventType, age, liuNianGanZhi, daYunGanZhi]);
+                events.push({ year, age, close: close.toFixed(1), type: eventType, isUp: close >= open, index: age });
+                
+                score = close;
             }
-            
-            // 获取大运信息用于影响运势
-            const daYunList = analysis.daYun || [];
-            
-            score = baseScore + (Math.random() * 10 - 5);
-            
-        for (let age = 0; age <= 80; age++) {
-            const year = startYear + age;
-            
-            // 复合波形：多个不同频率的波叠加，产生更自然的曲线
-            const wave1 = Math.sin((age / frequency1) + phaseOffset) * amplitude1;
-            const wave2 = Math.cos((age / frequency2) + phaseOffset * 0.7) * amplitude2;
-            const wave3 = Math.sin((age / 3.5) + phaseOffset * 1.3) * 3; // 高频小波动
-            
-            // 大运影响（每10年一个大运）
-            let daYunBonus = 0;
-            const currentDaYunIndex = Math.floor((age - 8) / 10);
-            if (currentDaYunIndex >= 0 && currentDaYunIndex < daYunList.length) {
-                // 根据大运干支与日主的关系计算加成
-                const daYun = daYunList[currentDaYunIndex];
-                const daYunSeed = (daYun.gan.charCodeAt(0) + daYun.zhi.charCodeAt(0)) % 20 - 10;
-                daYunBonus = daYunSeed * 0.5;
-            }
-            
-            const trend = (wave1 + wave2 + wave3) * volatility + daYunBonus;
-            
-            let open = score;
-            let change = (Math.random() * 14 - 7) * volatility + (trend * 0.25);
-            let close = open + change;
-            
-            close = Math.max(20, Math.min(95, close));
-            
-            let low = Math.min(open, close) - Math.random() * 5 * volatility;
-            let high = Math.max(open, close) + Math.random() * 5 * volatility;
-            
-            low = Math.max(10, low);
-            high = Math.min(99, high);
-
-            let vol = Math.floor(Math.random() * 1000) + 500;
-            if(age > 20 && age < 50) vol += 500; 
-
-            // 更丰富的事件类型判定
-            let eventType = "平稳";
-            const changePercent = ((close - open) / open) * 100;
-            
-            if (changePercent > 8) {
-                const goodEvents = ["财星高照", "大吉大利", "贵人相助", "事业高升", "桃花运旺"];
-                eventType = goodEvents[Math.floor(Math.random() * goodEvents.length)];
-            } else if (changePercent > 3) {
-                const normalGoodEvents = ["小有收获", "稳步上升", "运势渐好", "心想事成"];
-                eventType = normalGoodEvents[Math.floor(Math.random() * normalGoodEvents.length)];
-            } else if (changePercent < -8) {
-                const badEvents = ["七杀克身", "破财之灾", "小人作祟", "事业受阻", "健康预警"];
-                eventType = badEvents[Math.floor(Math.random() * badEvents.length)];
-            } else if (changePercent < -3) {
-                const normalBadEvents = ["略有波折", "需要谨慎", "低调为宜", "蓄势待发"];
-                eventType = normalBadEvents[Math.floor(Math.random() * normalBadEvents.length)];
-            } else {
-                const neutralEvents = ["平稳", "中规中矩", "顺其自然", "静候佳音"];
-                eventType = neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
-            }
-            
-            // 特殊年龄段的事件
-            if (age === 18) eventType = "🎓 成人礼";
-            else if (age === 22) eventType = "🎓 大学毕业";
-            else if (age >= 25 && age <= 35 && Math.random() > 0.8) eventType = "💼 职场晋升";
-            else if (age >= 28 && age <= 32 && Math.random() > 0.85) eventType = "💑 良缘";
-            else if (age === 30) eventType = "🎂 而立之年";
-            else if (age === 40) eventType = "💪 不惑之年";
-            else if (age === 50) eventType = "🌟 知天命";
-            else if (age === 60) eventType = "🎊 花甲之年";
-
-            data.push([
-                `${year}`,   
-                open.toFixed(1),  
-                close.toFixed(1), 
-                low.toFixed(1),   
-                high.toFixed(1),  
-                vol,              
-                eventType,        
-                age               
-            ]);
-
-            events.push({ year, age, close: close.toFixed(1), type: eventType, isUp: close >= open, index: age });
-            
-            score = close;
-        }
         }
         
         // 返回包含格局信息的对象
@@ -1758,6 +2054,10 @@
                                 涨跌幅: <span style="color:${color}">${change}%</span><br>
                                 评语: <span style="color:#fff">${item[6]}</span>
                                 </div>`;
+                        res += `<div style="margin-top:5px; border-top:1px solid #333; padding-top:5px; display:flex; gap:15px;">
+                                <span>流年: <b style="color:#f0b90b">${item[8] || '--'}</b></span>
+                                <span>大运: <b style="color:#0ecb81">${item[9] || '--'}</b></span>
+                                </div>`;
                     }
                     return res;
                 }
@@ -1804,7 +2104,7 @@
             ],
             dataZoom: [
                 { type: 'inside', xAxisIndex: [0, 1], start: currentPeriod === '1y' ? 70 : 20, end: currentPeriod === '1y' ? 100 : 60 },
-                { type: 'slider', xAxisIndex: [0, 1], bottom: 5, height: 15, borderColor: colors.grid, fillerColor: 'rgba(255,255,255,0.1)', handleStyle: {color: colors.text}, textStyle: {color: colors.text} }
+                { type: 'slider', xAxisIndex: [0, 1], bottom: 25, height: 60, borderColor: colors.grid, fillerColor: 'rgba(255,255,255,0.1)', handleStyle: {color: colors.text}, textStyle: {color: colors.text} }
             ],
             series: [
                 {
@@ -2358,6 +2658,40 @@
                 items[idx].scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         });
+    }
+
+    // 随机生成生日并运行模拟
+    function randomGenerate() {
+        // 随机生成年份 (1940-2020)
+        const year = Math.floor(Math.random() * (2020 - 1940 + 1)) + 1940;
+        // 随机生成月份 (1-12)
+        const month = Math.floor(Math.random() * 12) + 1;
+        // 随机生成日期 (根据月份确定最大天数)
+        const maxDay = new Date(year, month, 0).getDate();
+        const day = Math.floor(Math.random() * maxDay) + 1;
+        
+        // 格式化日期
+        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        // 设置日期输入框的值
+        document.getElementById('dob').value = dateStr;
+        
+        // 随机选择时辰
+        const hours = ['zi', 'chou', 'yin', 'mao', 'chen', 'si', 'wu', 'wei', 'shen', 'you', 'xu', 'hai'];
+        const randomHour = hours[Math.floor(Math.random() * hours.length)];
+        document.getElementById('birth-hour').value = randomHour;
+        
+        // 随机选择性别
+        const randomGender = Math.random() > 0.5 ? 'male' : 'female';
+        selectGender(randomGender);
+        
+        // 如果当前是八字模式，切换到日期模式
+        if (inputMode === 'bazi') {
+            switchInputMode('date');
+        }
+        
+        // 立即运行模拟
+        runSimulation();
     }
 
     function runSimulation() {
@@ -3107,6 +3441,10 @@
                 case ' ': // 空格键 - 生成K线
                     e.preventDefault();
                     runSimulation();
+                    break;
+                case 'r': // R键 - 随机生成
+                    e.preventDefault();
+                    randomGenerate();
                     break;
                 case 'd': // D键 - 日K粒度
                     switchGranularity('day');
