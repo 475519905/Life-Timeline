@@ -411,6 +411,13 @@
                                 <option value="hai">亥时 (21-23)</option>
                             </select>
                         </div>
+                        <div class="mt-3">
+                            <label class="text-[10px] text-[#848e9c] mb-1 block">性别</label>
+                            <div class="flex gap-2">
+                                <button id="gender-male" class="flex-1 py-1.5 text-xs rounded bg-[#f0b90b] text-black font-bold" onclick="selectGender('male')">♂ 男</button>
+                                <button id="gender-female" class="flex-1 py-1.5 text-xs rounded bg-[#2b3139] text-[#848e9c]" onclick="selectGender('female')">♀ 女</button>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- 八字直接输入区域 -->
@@ -434,17 +441,29 @@
                                 <input type="text" id="bazi-hour" maxlength="2" placeholder="庚午" class="trade-input w-full p-1.5 rounded text-xs outline-none text-center">
                             </div>
                         </div>
-                        <div class="text-[9px] text-[#848e9c]">
+                        <div class="text-[9px] text-[#848e9c] mb-2">
                             示例：甲子 丙寅 戊辰 庚午
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-[#848e9c] mb-1 block">性别</label>
+                            <div class="flex gap-2">
+                                <button id="gender-male-bazi" class="flex-1 py-1.5 text-xs rounded bg-[#f0b90b] text-black font-bold" onclick="selectGender('male')">♂ 男</button>
+                                <button id="gender-female-bazi" class="flex-1 py-1.5 text-xs rounded bg-[#2b3139] text-[#848e9c]" onclick="selectGender('female')">♀ 女</button>
+                            </div>
                         </div>
                     </div>
                     
                     <button onclick="runSimulation()" class="w-full py-2.5 rounded bg-[#f0b90b] text-black font-bold text-sm hover:opacity-90 transition">
                         生成人生 K 线 (Space)
                     </button>
-                    <button onclick="resetAll()" class="w-full py-1.5 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-white transition">
-                        重置所有设置
-                    </button>
+                    <div class="flex gap-2">
+                        <button onclick="saveCurrentRecord()" class="flex-1 py-1.5 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-[#f0b90b] transition" title="保存当前记录">
+                            💾 保存记录
+                        </button>
+                        <button onclick="resetAll()" class="flex-1 py-1.5 rounded bg-[#2b3139] text-[#848e9c] text-xs hover:text-white transition">
+                            🔄 重置
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -452,7 +471,7 @@
             <div class="flex border-b border-[#2b3139] text-xs bg-[#0b0e11]">
                 <button id="tab-orderbook" class="flex-1 py-2 text-white border-b-2 border-[#f0b90b]" onclick="switchTradeTab('orderbook')">盘口</button>
                 <button id="tab-trades" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('trades')">成交</button>
-                <button id="tab-position" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('position')">持仓</button>
+                <button id="tab-records" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('records')">📋记录</button>
                 <button id="tab-assets" class="flex-1 py-2 text-[#848e9c] hover:text-white" onclick="switchTradeTab('assets')">资产</button>
             </div>
 
@@ -520,6 +539,24 @@
                 </div>
             </div>
 
+            <!-- 记录面板 -->
+            <div id="panel-records" class="flex-1 flex-col overflow-hidden hidden">
+                <div class="p-3 border-b border-[#2b3139] flex justify-between items-center">
+                    <span class="text-xs text-[#848e9c]">已保存的记录</span>
+                    <button onclick="saveCurrentRecord()" class="px-2 py-1 text-[10px] bg-[#f0b90b] text-black rounded hover:opacity-80 transition">
+                        💾 保存当前
+                    </button>
+                </div>
+                <div id="records-list" class="flex-1 overflow-y-auto p-2 space-y-2">
+                    <div class="text-center text-[#848e9c] text-xs py-8">暂无保存的记录</div>
+                </div>
+                <div class="p-2 border-t border-[#2b3139]">
+                    <button onclick="clearAllRecords()" class="w-full py-1.5 text-[10px] bg-[#2b3139] text-[#848e9c] rounded hover:text-[#f6465d] transition">
+                        🗑️ 清空所有记录
+                    </button>
+                </div>
+            </div>
+
             <div class="p-3 border-t border-[#2b3139]">
                 <div class="flex gap-2 mb-2">
                     <div class="flex-1">
@@ -559,6 +596,7 @@
         let currentBaziAnalysis = null; // 保存完整的八字分析结果
         let currentTradeTab = 'orderbook'; // 当前交易面板标签
         let inputMode = 'date'; // 输入模式：'date' 或 'bazi'
+        let selectedGender = 'male'; // 性别：'male' 或 'female'
         let recentTrades = []; // 最近成交记录
         let tickerData = []; // 行情数据
     
@@ -684,10 +722,10 @@
         const ganList = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
         const zhiList = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
         
-        // 简化版：阳男阴女顺排，阴男阳女逆排
+        // 阳男阴女顺排，阴男阳女逆排
         const yangGan = ['甲', '丙', '戊', '庚', '壬'];
         const isYangGan = yangGan.includes(yearGan);
-        const isMale = gender === 'male' || Math.random() > 0.5; // 默认随机性别
+        const isMale = gender === 'male';
         
         const isShun = (isYangGan && isMale) || (!isYangGan && !isMale);
         
@@ -1295,8 +1333,8 @@
         const dayNaYin = getNaYin(dayGan, dayZhi);
         const hourNaYin = getNaYin(hourGan, hourZhi);
         
-        // 计算大运
-        const daYun = calculateDaYun(yearGan, yearZhi, monthGan, monthZhi, 'male', year);
+        // 计算大运（使用选择的性别）
+        const daYun = calculateDaYun(yearGan, yearZhi, monthGan, monthZhi, selectedGender, year);
         
         // 计算流年
         const liuNian = calculateLiuNian(year, new Date().getFullYear());
@@ -1312,6 +1350,7 @@
             bazi: baziInfo,
             dayGan: dayGan,
             strength: strengthText,
+            gender: selectedGender, // 性别
             // 详细八字信息
             year: { gan: yearGan, zhi: yearZhi, ganzhi: yearGan + yearZhi, nayin: yearNaYin },
             month: { gan: monthGan, zhi: monthZhi, ganzhi: monthGan + monthZhi, nayin: monthNaYin },
@@ -1818,7 +1857,7 @@
         currentTradeTab = tab;
         
         // 更新标签样式
-        ['orderbook', 'trades', 'position', 'assets'].forEach(t => {
+        ['orderbook', 'trades', 'records', 'assets'].forEach(t => {
             const tabEl = document.getElementById(`tab-${t}`);
             const panelEl = document.getElementById(`panel-${t}`);
             
@@ -1838,6 +1877,11 @@
         // 如果切换到成交面板，生成成交记录
         if (tab === 'trades') {
             generateRecentTrades();
+        }
+        
+        // 如果切换到记录面板，刷新记录列表
+        if (tab === 'records') {
+            renderRecordsList();
         }
     }
     
@@ -1914,6 +1958,183 @@
             `;
         }).join('');
     }
+    
+    // ============ 记录管理功能 ============
+    
+    // 获取所有保存的记录
+    function getSavedRecords() {
+        const records = localStorage.getItem('lifeTimeRecords');
+        return records ? JSON.parse(records) : [];
+    }
+    
+    // 保存记录到本地存储
+    function saveRecordsToStorage(records) {
+        localStorage.setItem('lifeTimeRecords', JSON.stringify(records));
+    }
+    
+    // 保存当前记录
+    function saveCurrentRecord() {
+        if (!currentBaziAnalysis || !currentDataset) {
+            showCustomAlert('请先生成人生K线！', 'info');
+            return;
+        }
+        
+        const bz = currentBaziAnalysis;
+        const record = {
+            id: Date.now(),
+            createTime: new Date().toLocaleString('zh-CN'),
+            bazi: bz.bazi,
+            pattern: bz.pattern,
+            god: bz.god,
+            strength: bz.strength,
+            gender: selectedGender, // 保存性别
+            year: bz.year,
+            month: bz.month,
+            day: bz.day,
+            hour: bz.hour,
+            birthYear: bz.birthYear,
+            inputMode: inputMode,
+            // 如果是日期模式，保存日期信息
+            dob: inputMode === 'date' ? document.getElementById('dob').value : null,
+            birthHour: inputMode === 'date' ? document.getElementById('birth-hour').value : null,
+            // 如果是八字模式，保存八字输入
+            baziInput: inputMode === 'bazi' ? {
+                year: document.getElementById('bazi-year').value,
+                month: document.getElementById('bazi-month').value,
+                day: document.getElementById('bazi-day').value,
+                hour: document.getElementById('bazi-hour').value
+            } : null,
+            // 保存最终运势分数
+            finalScore: currentDataset.rawData[currentDataset.rawData.length - 1][2],
+            // 备注（可选）
+            note: ''
+        };
+        
+        const records = getSavedRecords();
+        records.unshift(record); // 添加到最前面
+        
+        // 最多保存50条记录
+        if (records.length > 50) {
+            records.pop();
+        }
+        
+        saveRecordsToStorage(records);
+        renderRecordsList();
+        showCustomAlert('✅ 记录已保存！\n\n八字：' + bz.bazi + '\n格局：' + bz.pattern, 'info');
+        
+        // 自动切换到记录面板
+        switchTradeTab('records');
+    }
+    
+    // 渲染记录列表
+    function renderRecordsList() {
+        const container = document.getElementById('records-list');
+        const records = getSavedRecords();
+        
+        if (records.length === 0) {
+            container.innerHTML = '<div class="text-center text-[#848e9c] text-xs py-8">暂无保存的记录</div>';
+            return;
+        }
+        
+        container.innerHTML = records.map((record, index) => {
+            const strengthColor = record.strength === '身强' ? '#0ecb81' : record.strength === '身弱' ? '#f6465d' : '#848e9c';
+            const genderIcon = record.gender === 'female' ? '♀' : '♂';
+            const genderColor = record.gender === 'female' ? '#ff6b9d' : '#3b82f6';
+            return `
+                <div class="bg-[#1e2329] rounded p-2 hover:bg-[#2b3139] transition cursor-pointer" onclick="loadRecord(${record.id})">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-[#f0b90b] text-[11px] font-bold">
+                            <span style="color: ${genderColor}">${genderIcon}</span> ${record.bazi}
+                        </span>
+                        <button onclick="event.stopPropagation(); deleteRecord(${record.id})" class="text-[#848e9c] hover:text-[#f6465d] text-[10px]" title="删除">✕</button>
+                    </div>
+                    <div class="text-[10px] text-[#848e9c] mb-1">${record.pattern}</div>
+                    <div class="flex justify-between items-center text-[9px]">
+                        <span style="color: ${strengthColor}">${record.strength}</span>
+                        <span class="text-[#848e9c]">${record.createTime}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // 加载记录
+    function loadRecord(recordId) {
+        const records = getSavedRecords();
+        const record = records.find(r => r.id === recordId);
+        
+        if (!record) {
+            showCustomAlert('记录不存在！', 'info');
+            return;
+        }
+        
+        // 恢复性别选择
+        if (record.gender) {
+            selectGender(record.gender);
+        } else {
+            selectGender('male'); // 兼容旧记录，默认男
+        }
+        
+        // 根据记录的输入模式恢复设置
+        if (record.inputMode === 'date' && record.dob) {
+            switchInputMode('date');
+            document.getElementById('dob').value = record.dob;
+            document.getElementById('birth-hour').value = record.birthHour || 'random';
+        } else if (record.inputMode === 'bazi' && record.baziInput) {
+            switchInputMode('bazi');
+            document.getElementById('bazi-year').value = record.baziInput.year;
+            document.getElementById('bazi-month').value = record.baziInput.month;
+            document.getElementById('bazi-day').value = record.baziInput.day;
+            document.getElementById('bazi-hour').value = record.baziInput.hour;
+        } else if (record.year && record.month && record.day && record.hour) {
+            // 兼容旧记录：使用八字模式恢复
+            switchInputMode('bazi');
+            document.getElementById('bazi-year').value = record.year.ganzhi;
+            document.getElementById('bazi-month').value = record.month.ganzhi;
+            document.getElementById('bazi-day').value = record.day.ganzhi;
+            document.getElementById('bazi-hour').value = record.hour.ganzhi;
+        }
+        
+        // 重新生成
+        runSimulation();
+        
+        const genderText = record.gender === 'female' ? '女' : '男';
+        showCustomAlert('📂 已加载记录\n\n性别：' + genderText + '\n八字：' + record.bazi + '\n格局：' + record.pattern, 'info');
+    }
+    
+    // 删除单条记录
+    function deleteRecord(recordId) {
+        const records = getSavedRecords();
+        const index = records.findIndex(r => r.id === recordId);
+        
+        if (index === -1) return;
+        
+        const record = records[index];
+        
+        // 确认删除
+        if (confirm('确定要删除这条记录吗？\n\n八字：' + record.bazi)) {
+            records.splice(index, 1);
+            saveRecordsToStorage(records);
+            renderRecordsList();
+        }
+    }
+    
+    // 清空所有记录
+    function clearAllRecords() {
+        const records = getSavedRecords();
+        if (records.length === 0) {
+            showCustomAlert('没有可清空的记录', 'info');
+            return;
+        }
+        
+        if (confirm('确定要清空所有 ' + records.length + ' 条记录吗？\n\n此操作不可恢复！')) {
+            localStorage.removeItem('lifeTimeRecords');
+            renderRecordsList();
+            showCustomAlert('已清空所有记录', 'info');
+        }
+    }
+    
+    // ============ 记录管理功能结束 ============
     
     // 更新24小时统计
     function update24hStats(dataset) {
@@ -2221,6 +2442,42 @@
             dateBtn.classList.add('bg-[#2b3139]', 'text-[#848e9c]');
             dateArea.classList.add('hidden');
             baziArea.classList.remove('hidden');
+        }
+    }
+
+    // 选择性别
+    function selectGender(gender) {
+        selectedGender = gender;
+        
+        // 更新日期模式下的性别按钮
+        const maleBtn = document.getElementById('gender-male');
+        const femaleBtn = document.getElementById('gender-female');
+        // 更新八字模式下的性别按钮
+        const maleBtnBazi = document.getElementById('gender-male-bazi');
+        const femaleBtnBazi = document.getElementById('gender-female-bazi');
+        
+        if (gender === 'male') {
+            // 日期模式按钮
+            maleBtn.classList.remove('bg-[#2b3139]', 'text-[#848e9c]');
+            maleBtn.classList.add('bg-[#f0b90b]', 'text-black', 'font-bold');
+            femaleBtn.classList.remove('bg-[#f0b90b]', 'text-black', 'font-bold');
+            femaleBtn.classList.add('bg-[#2b3139]', 'text-[#848e9c]');
+            // 八字模式按钮
+            maleBtnBazi.classList.remove('bg-[#2b3139]', 'text-[#848e9c]');
+            maleBtnBazi.classList.add('bg-[#f0b90b]', 'text-black', 'font-bold');
+            femaleBtnBazi.classList.remove('bg-[#f0b90b]', 'text-black', 'font-bold');
+            femaleBtnBazi.classList.add('bg-[#2b3139]', 'text-[#848e9c]');
+        } else {
+            // 日期模式按钮
+            femaleBtn.classList.remove('bg-[#2b3139]', 'text-[#848e9c]');
+            femaleBtn.classList.add('bg-[#f0b90b]', 'text-black', 'font-bold');
+            maleBtn.classList.remove('bg-[#f0b90b]', 'text-black', 'font-bold');
+            maleBtn.classList.add('bg-[#2b3139]', 'text-[#848e9c]');
+            // 八字模式按钮
+            femaleBtnBazi.classList.remove('bg-[#2b3139]', 'text-[#848e9c]');
+            femaleBtnBazi.classList.add('bg-[#f0b90b]', 'text-black', 'font-bold');
+            maleBtnBazi.classList.remove('bg-[#f0b90b]', 'text-black', 'font-bold');
+            maleBtnBazi.classList.add('bg-[#2b3139]', 'text-[#848e9c]');
         }
     }
 
@@ -2562,6 +2819,9 @@
         // 初始化交易面板
         switchTradeTab('orderbook');
         
+        // 初始化记录列表
+        renderRecordsList();
+        
         runSimulation();
         
         // 添加键盘快捷键
@@ -2710,6 +2970,9 @@
         // 重置输入模式为日期模式
         inputMode = 'date';
         switchInputMode('date');
+        
+        // 重置性别为男
+        selectGender('male');
         
         // 重置日期和时辰
         document.getElementById('dob').value = '1998-08-08';
