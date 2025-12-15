@@ -41,6 +41,10 @@
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            height: 100dvh; /* 动态视口高度，适配iOS Safari */
         }
 
         /* 滚动条样式 */
@@ -251,12 +255,20 @@
         /* 移动端底部面板 */
         #bottom-panel {
             transition: transform 0.3s ease-out;
+            position: relative;
+            z-index: 10;
         }
         #bottom-panel.collapsed {
             transform: translateY(calc(100% - 60px));
         }
         #bottom-panel.collapsed #bottom-panel-content {
             overflow: hidden;
+        }
+        
+        /* 确保图表区域能正确占据空间 */
+        #kline-chart {
+            min-height: 0;
+            flex: 1 1 0%;
         }
 
         /* 移动端优化 */
@@ -295,7 +307,7 @@
         }
     </style>
 </head>
-<body class="h-screen flex flex-col">
+<body class="flex flex-col" style="height: 100vh; height: 100dvh;">
 
     <header class="border-b border-[#2b3139] bg-[#161a1e] flex-shrink-0">
         <!-- 顶部栏 -->
@@ -337,9 +349,9 @@
     </header>
 
     <!-- 图表区域 -->
-    <div class="flex-1 flex flex-col relative overflow-hidden">
+    <div class="flex-1 flex flex-col relative overflow-hidden" style="min-height: 0;">
         <!-- 工具栏 -->
-        <div class="h-10 border-b border-[#2b3139] flex items-center px-3 gap-2 text-[10px] text-[#848e9c] bg-[#161a1e] overflow-x-auto">
+        <div class="h-10 border-b border-[#2b3139] flex items-center px-3 gap-2 text-[10px] text-[#848e9c] bg-[#161a1e] overflow-x-auto flex-shrink-0">
             <span id="granularity-day" class="cursor-pointer hover:text-white whitespace-nowrap px-2 py-1" onclick="switchGranularity('day')">日K</span>
             <span id="granularity-month" class="cursor-pointer hover:text-white whitespace-nowrap px-2 py-1" onclick="switchGranularity('month')">月K</span>
             <span id="granularity-year" class="cursor-pointer hover:text-white text-[#f0b90b] whitespace-nowrap px-2 py-1" onclick="switchGranularity('year')">年K</span>
@@ -349,7 +361,7 @@
             <span id="indicator-boll" class="text-[#848e9c] cursor-pointer hover:text-white whitespace-nowrap px-2 py-1" onclick="toggleIndicator('boll')">BOLL</span>
         </div>
 
-        <div id="kline-chart" class="w-full flex-1 bg-[#161a1e]"></div>
+        <div id="kline-chart" class="w-full flex-1 bg-[#161a1e]" style="min-height: 0; position: relative;"></div>
 
         <div id="chart-loader" class="absolute inset-0 bg-[#0b0e11] z-50 flex flex-col items-center justify-center hidden">
             <div class="loader mb-4"></div>
@@ -1409,6 +1421,11 @@
         currentDataset = dataset;
         const dom = document.getElementById('kline-chart');
         if(chartInstance) chartInstance.dispose();
+        // 确保容器有明确的高度
+        if (dom) {
+            dom.style.height = '100%';
+            dom.style.width = '100%';
+        }
         chartInstance = echarts.init(dom);
 
         const rawData = dataset.rawData;
@@ -1658,7 +1675,23 @@
         });
         chartInstance.setOption(option);
         
-        window.addEventListener('resize', () => chartInstance.resize());
+        // 延迟resize确保容器尺寸已计算
+        setTimeout(() => {
+            if (chartInstance) {
+                chartInstance.resize();
+            }
+        }, 100);
+        
+        // 移除旧的resize监听器，添加新的
+        if (window.chartResizeHandler) {
+            window.removeEventListener('resize', window.chartResizeHandler);
+        }
+        window.chartResizeHandler = () => {
+            if (chartInstance) {
+                chartInstance.resize();
+            }
+        };
+        window.addEventListener('resize', window.chartResizeHandler);
     }
 
     // ============ 交易所功能函数 ============
@@ -1923,7 +1956,7 @@
             renderOrderBook(dataset.events);
             
             loader.classList.add('hidden');
-            
+
             // 移动版已移除顶部八字信息栏，无需更新UI
 
         }, 1000); 
